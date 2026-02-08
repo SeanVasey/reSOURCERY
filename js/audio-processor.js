@@ -3,9 +3,11 @@
  * Handles audio extraction, analysis, and format conversion
  * Uses FFmpeg.wasm for media processing
  *
- * @version 1.2.0
+ * @version 1.3.0
  * @bugfix Fixed preserveSampleRate setting not being used
  * @bugfix Integrated Web Worker for non-blocking audio analysis
+ * @bugfix Fixed progress flow conflicts with app-level progress tracking
+ * @bugfix Added URL protocol validation
  */
 
 class AudioProcessor {
@@ -173,9 +175,9 @@ class AudioProcessor {
       // Set up progress handler
       this.ffmpeg.on('progress', ({ progress }) => {
         if (this.onProgress) {
-          // Map FFmpeg progress (0-1) to our progress range (25-90)
-          const mappedProgress = 25 + Math.round(progress * 65);
-          this.onProgress(mappedProgress);
+          // Map FFmpeg progress (0-1) to extraction range (40-70)
+          const mappedProgress = 40 + Math.round(progress * 30);
+          this.onProgress(Math.min(mappedProgress, 70));
         }
       });
 
@@ -264,41 +266,41 @@ class AudioProcessor {
     const inputName = 'input' + this.getExtension(file.name);
 
     try {
-      // Step 1: Load file into FFmpeg
+      // Step 1: Load file into FFmpeg (progress 25-35)
       this.updateStage('Loading media...');
-      this.updateProgress(5);
+      this.updateProgress(25);
 
       const fileData = await this.fetchFile(file);
       await this.ffmpeg.writeFile(inputName, fileData);
 
-      this.updateProgress(15);
+      this.updateProgress(35);
 
-      // Step 2: Probe the file for audio streams
+      // Step 2: Probe the file for audio streams (progress 35-40)
       this.updateStage('Detecting audio streams...');
       await this.probeFile(inputName);
 
-      this.updateProgress(25);
+      this.updateProgress(40);
 
-      // Step 3: Extract audio to WAV (intermediate format for analysis)
+      // Step 3: Extract audio to WAV (progress 40-70, FFmpeg handler maps to 25-90 internally)
       this.updateStage('Extracting audio...');
       const wavData = await this.extractAudio(inputName);
 
-      this.updateProgress(60);
+      this.updateProgress(70);
 
-      // Step 4: Load into Web Audio API for analysis
+      // Step 4: Load into Web Audio API for analysis (progress 70-80)
       this.updateStage('Analyzing audio...');
       await this.loadAudioBuffer(wavData);
 
-      this.updateProgress(75);
+      this.updateProgress(80);
 
-      // Step 5: Detect tempo and key (using Web Worker if available)
+      // Step 5: Detect tempo and key (using Web Worker if available, progress 80-95)
       this.updateStage('Detecting tempo & key...');
       const analysisResult = await this.analyzeAudio(this.audioBuffer);
 
       this.metadata.tempo = analysisResult.tempo;
       this.metadata.key = analysisResult.key;
 
-      this.updateProgress(100);
+      this.updateProgress(95);
       this.updateStage('Analysis complete');
 
       // Clean up input file
@@ -324,9 +326,19 @@ class AudioProcessor {
       await this.initialize();
     }
 
+    // Validate URL protocol
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        throw new Error('Only HTTP and HTTPS URLs are supported');
+      }
+    } catch (e) {
+      throw new Error('Invalid URL: ' + e.message);
+    }
+
     try {
       this.updateStage('Fetching media...');
-      this.updateProgress(5);
+      this.updateProgress(25);
 
       // Fetch the URL content
       const response = await fetch(url);
