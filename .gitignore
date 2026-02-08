@@ -1,0 +1,34 @@
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node (if ever needed)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# Build artifacts
+dist/
+build/
+*.map
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Generated icons (kept as needed, ignored if regenerated)
+icons/icon-*.png
