@@ -745,8 +745,7 @@ class ReSOURCERYApp {
     const iconSpan = document.createElement('span');
     iconSpan.className = `toast-icon ${type}`;
 
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '20');
     svg.setAttribute('height', '20');
     svg.setAttribute('viewBox', '0 0 24 24');
@@ -754,39 +753,13 @@ class ReSOURCERYApp {
     svg.setAttribute('stroke', 'currentColor');
     svg.setAttribute('stroke-width', '2');
 
-    if (type === 'success') {
-      const polyline = document.createElementNS(svgNS, 'polyline');
-      polyline.setAttribute('points', '20 6 9 17 4 12');
-      svg.appendChild(polyline);
-    } else if (type === 'error') {
-      const circle = document.createElementNS(svgNS, 'circle');
-      circle.setAttribute('cx', '12');
-      circle.setAttribute('cy', '12');
-      circle.setAttribute('r', '10');
-      svg.appendChild(circle);
-      const line1 = document.createElementNS(svgNS, 'line');
-      line1.setAttribute('x1', '15'); line1.setAttribute('y1', '9');
-      line1.setAttribute('x2', '9'); line1.setAttribute('y2', '15');
-      svg.appendChild(line1);
-      const line2 = document.createElementNS(svgNS, 'line');
-      line2.setAttribute('x1', '9'); line2.setAttribute('y1', '9');
-      line2.setAttribute('x2', '15'); line2.setAttribute('y2', '15');
-      svg.appendChild(line2);
-    } else {
-      const circle = document.createElementNS(svgNS, 'circle');
-      circle.setAttribute('cx', '12');
-      circle.setAttribute('cy', '12');
-      circle.setAttribute('r', '10');
-      svg.appendChild(circle);
-      const line1 = document.createElementNS(svgNS, 'line');
-      line1.setAttribute('x1', '12'); line1.setAttribute('y1', '16');
-      line1.setAttribute('x2', '12'); line1.setAttribute('y2', '12');
-      svg.appendChild(line1);
-      const line2 = document.createElementNS(svgNS, 'line');
-      line2.setAttribute('x1', '12'); line2.setAttribute('y1', '8');
-      line2.setAttribute('x2', '12.01'); line2.setAttribute('y2', '8');
-      svg.appendChild(line2);
-    }
+    const iconPaths = {
+      success: '<polyline points="20 6 9 17 4 12"></polyline>',
+      error: '<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>',
+      info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>'
+    };
+
+    svg.innerHTML = iconPaths[type] || iconPaths.info;
 
     iconSpan.appendChild(svg);
     toast.appendChild(iconSpan);
