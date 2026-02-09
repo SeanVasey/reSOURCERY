@@ -118,6 +118,7 @@ html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
 }
 
 body {
@@ -143,7 +144,7 @@ body::before {
   height: 100%;
   pointer-events: none;
   opacity: 0.015;
-  z-index: 1000;
+  z-index: 2;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
@@ -266,31 +267,36 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 16px;
+  max-width: 100%;
+  padding: 0 var(--space-sm);
 }
 
 /* App Logo - Borderless, displayed directly */
 .app-logo {
-  width: 72px;
-  height: 72px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
   filter: drop-shadow(0 4px 16px rgba(85, 104, 204, 0.5)) drop-shadow(0 0 24px rgba(92, 230, 214, 0.25));
 }
 
-/* App Title - Bold gradient text matching StyleyeS/FilePhile branding */
+/* App Title - Condensed gradient text matching FilePhile branding */
 .app-title {
   font-family: 'Outfit', var(--font-body);
-  font-size: 3rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   line-height: 1;
   background: linear-gradient(135deg, var(--indigo-300) 0%, var(--cyan-400) 50%, var(--cyan-500) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 /* Version Badge - Subtle muted pill matching reference design */
@@ -298,15 +304,17 @@ body::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 16px;
+  padding: 4px 10px;
   background: rgba(30, 30, 42, 0.9);
   border: 1px solid rgba(68, 85, 170, 0.2);
   border-radius: var(--radius-full);
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -340,7 +348,8 @@ body::before {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-md);
+  gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .section-title {
@@ -504,6 +513,7 @@ body::before {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(68, 85, 170, 0.12);
+  isolation: isolate;
 }
 
 /* Subtle gradient border glow */
@@ -942,9 +952,10 @@ body::before {
 .audio-player {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md);
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--glass-border);
+  overflow: hidden;
 }
 
 .play-btn {
@@ -984,11 +995,11 @@ body::before {
 }
 
 .time-display {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
   white-space: nowrap;
-  min-width: 80px;
+  flex-shrink: 0;
 }
 
 .time-separator {
@@ -1046,19 +1057,22 @@ body::before {
 /* Audio Metadata */
 .audio-metadata {
   padding: var(--space-md);
+  overflow: hidden;
 }
 
 .metadata-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-md);
+  gap: var(--space-sm) var(--space-md);
   margin-bottom: var(--space-md);
 }
 
 .metadata-item {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .metadata-label {
@@ -1070,16 +1084,19 @@ body::before {
 }
 
 .metadata-value {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 500;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Music Analysis */
 .music-analysis {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-md);
+  gap: var(--space-sm);
   padding-top: var(--space-md);
   border-top: 1px solid var(--glass-border);
 }
@@ -1087,16 +1104,19 @@ body::before {
 .analysis-item {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md);
+  gap: var(--space-sm);
+  padding: var(--space-sm);
   background: rgba(0, 0, 0, 0.3);
   border-radius: var(--radius-md);
   border: 1px solid var(--glass-border);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .analysis-icon {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1105,10 +1125,17 @@ body::before {
   color: var(--color-bg-dark);
 }
 
+.analysis-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 .analysis-content {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .analysis-label {
@@ -1121,9 +1148,12 @@ body::before {
 
 .analysis-value {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   letter-spacing: 0.02em;
   color: var(--cyan-400);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Download Section */
@@ -1142,15 +1172,15 @@ body::before {
 .format-options {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
 .format-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-lg);
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-sm);
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -1330,7 +1360,7 @@ body::before {
 .settings-panel {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 300;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1481,7 +1511,7 @@ body::before {
   bottom: calc(var(--safe-bottom) + 80px);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 300;
+  z-index: 400;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -1579,7 +1609,40 @@ body::before {
   }
 
   .format-btn {
-    padding: var(--space-xl) var(--space-md);
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .music-analysis {
+    gap: var(--space-md);
+  }
+
+  .analysis-item {
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+
+  .analysis-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+  }
+
+  .analysis-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .analysis-value {
+    font-size: 1.25rem;
+  }
+
+  .audio-player {
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+
+  .time-display {
+    font-size: 0.8125rem;
   }
 }
 
@@ -1596,17 +1659,17 @@ body::before {
   }
 
   .app-logo {
-    width: 88px;
-    height: 88px;
+    width: 72px;
+    height: 72px;
   }
 
   .app-title {
-    font-size: 3.75rem;
+    font-size: 2.75rem;
   }
 
   .version-badge {
-    padding: 8px 18px;
-    font-size: 0.9rem;
+    padding: 6px 14px;
+    font-size: 0.8rem;
   }
 
   .app-subtitle {
@@ -1614,7 +1677,7 @@ body::before {
   }
 
   .brand-row {
-    gap: 20px;
+    gap: 16px;
     margin-bottom: 20px;
   }
 

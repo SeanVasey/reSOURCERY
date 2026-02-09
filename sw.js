@@ -1,9 +1,10 @@
-const CACHE_NAME = 'resourcery-v2.0.0';
+const CACHE_NAME = 'resourcery-v2.1.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './css/styles.css',
   './coi-serviceworker.js',
+  './js/version.js',
   './js/app.js',
   './js/audio-processor.js',
   './js/fft.js',
@@ -18,7 +19,7 @@ const STATIC_ASSETS = [
 
 // External CDN resources
 const CDN_ASSETS = [
-  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Reddit+Sans:wght@300;400;500;600;700&display=swap',
+  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@700;800;900&family=Reddit+Sans:wght@300;400;500;600;700&display=swap',
   'https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js',
   'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js'
 ];
