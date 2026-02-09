@@ -743,7 +743,7 @@ class ReSOURCERYApp {
 
     // Create icon span using DOM API
     const iconSpan = document.createElement('span');
-    iconSpan.className = 'toast-icon ' + type;
+    iconSpan.className = `toast-icon ${type}`;
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '20');
