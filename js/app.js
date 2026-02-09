@@ -76,6 +76,8 @@ class ReSOURCERYApp {
       progressFill: document.getElementById('progressFill'),
       progressStage: document.getElementById('progressStage'),
       progressPercent: document.getElementById('progressPercent'),
+      stageRingFill: document.getElementById('stageRingFill'),
+      stageIconInner: document.getElementById('stageIconInner'),
       cancelBtn: document.getElementById('cancelBtn'),
       steps: {
         step1: document.getElementById('step1'),
@@ -669,8 +671,19 @@ class ReSOURCERYApp {
    */
   resetProgress() {
     this.elements.progressFill.style.width = '0%';
+    this.elements.progressFill.style.background = '';
     this.elements.progressPercent.textContent = '0%';
     this.elements.progressStage.textContent = 'Initializing...';
+
+    // Reset ring indicator
+    if (this.elements.stageRingFill) {
+      this.elements.stageRingFill.style.strokeDashoffset = '276.5';
+      this.elements.stageRingFill.style.stroke = '#4455aa';
+    }
+    if (this.elements.stageIconInner) {
+      this.elements.stageIconInner.dataset.stage = 'download';
+      this.elements.stageIconInner.style.color = '#4455aa';
+    }
 
     // Reset steps
     Object.values(this.elements.steps).forEach(step => {
@@ -684,6 +697,56 @@ class ReSOURCERYApp {
   updateProgress(percent) {
     this.elements.progressFill.style.width = `${percent}%`;
     this.elements.progressPercent.textContent = `${percent}%`;
+    this.updateRingProgress(percent);
+  }
+
+  /**
+   * Update the circular ring indicator progress and color
+   */
+  updateRingProgress(percent) {
+    if (!this.elements.stageRingFill) return;
+
+    const circumference = 276.5; // 2 * π * 44
+    const offset = circumference - (percent / 100) * circumference;
+    this.elements.stageRingFill.style.strokeDashoffset = offset;
+
+    // Color transition: indigo (0%) → cyan (50%) → bright teal (100%)
+    const color = this.getProgressColor(percent);
+    this.elements.stageRingFill.style.stroke = color;
+
+    if (this.elements.stageIconInner) {
+      this.elements.stageIconInner.style.color = color;
+    }
+
+    // Also tint the linear progress bar
+    this.elements.progressFill.style.background =
+      `linear-gradient(90deg, var(--indigo-500), ${color})`;
+  }
+
+  /**
+   * Get interpolated color based on progress percentage
+   */
+  getProgressColor(percent) {
+    if (percent <= 50) {
+      return this.lerpColor('#4455aa', '#32b4c4', percent / 50);
+    }
+    return this.lerpColor('#32b4c4', '#5ce6d6', (percent - 50) / 50);
+  }
+
+  /**
+   * Linear interpolate between two hex colors
+   */
+  lerpColor(a, b, t) {
+    const ar = parseInt(a.slice(1, 3), 16);
+    const ag = parseInt(a.slice(3, 5), 16);
+    const ab = parseInt(a.slice(5, 7), 16);
+    const br = parseInt(b.slice(1, 3), 16);
+    const bg = parseInt(b.slice(3, 5), 16);
+    const bb = parseInt(b.slice(5, 7), 16);
+    const r = Math.round(ar + (br - ar) * t);
+    const g = Math.round(ag + (bg - ag) * t);
+    const bl = Math.round(ab + (bb - ab) * t);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${bl.toString(16).padStart(2, '0')}`;
   }
 
   /**
@@ -691,6 +754,29 @@ class ReSOURCERYApp {
    */
   updateStage(stage) {
     this.elements.progressStage.textContent = stage;
+    this.updateStageIcon(stage);
+  }
+
+  /**
+   * Update the stage indicator icon based on current processing stage
+   */
+  updateStageIcon(stage) {
+    if (!this.elements.stageIconInner) return;
+
+    const s = stage.toLowerCase();
+    let iconType = 'download';
+
+    if (s.includes('complete') || s.includes('ready')) {
+      iconType = 'check';
+    } else if (s.includes('tempo') || s.includes('key')) {
+      iconType = 'music';
+    } else if (s.includes('extract') || s.includes('analyz') || s.includes('detect')) {
+      iconType = 'waveform';
+    } else if (s.includes('loading media') || s.includes('fetching') || s.includes('processing')) {
+      iconType = 'file';
+    }
+
+    this.elements.stageIconInner.dataset.stage = iconType;
   }
 
   /**
