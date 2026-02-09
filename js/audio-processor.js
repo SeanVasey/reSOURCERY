@@ -281,7 +281,7 @@ class AudioProcessor {
 
       this.updateProgress(40);
 
-      // Step 3: Extract audio to WAV (progress 40-70, FFmpeg handler maps to 25-90 internally)
+      // Step 3: Extract audio to WAV (progress 40-70)
       this.updateStage('Extracting audio...');
       const wavData = await this.extractAudio(inputName);
 
