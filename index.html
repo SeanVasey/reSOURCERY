@@ -14,7 +14,6 @@
   <link rel="apple-touch-icon" href="icons/reSOURCERY_optimized.svg">
 
   <!-- iOS Splash Screens -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="apple-touch-startup-image" href="icons/reSOURCERY_optimized.svg">
 
   <!-- Fonts -->
@@ -51,7 +50,7 @@
       <div class="brand-row">
         <img class="app-logo" src="icons/reSOURCERY_optimized.svg" alt="reSOURCERY" />
         <h1 class="app-title">reSOURCERY</h1>
-        <span class="version-badge">v2.0</span>
+        <span class="version-badge" id="versionBadge">v2.1</span>
       </div>
 
       <!-- Subtitle -->
@@ -397,7 +396,7 @@
           </div>
         </div>
         <div class="settings-footer">
-          <span class="version-text">v1.0.0</span>
+          <span class="version-text" id="settingsVersion">v2.1.0</span>
         </div>
       </div>
     </div>
@@ -420,6 +419,7 @@
   </script>
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js" onload="window.FFmpegWASM.FFmpeg = FFmpegWASM.FFmpeg"></script>
   <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js" onload="window.FFmpegUtil.fetchFile = FFmpegUtil.fetchFile"></script>
+  <script src="js/version.js"></script>
   <script src="js/fft.js"></script>
   <script src="js/tempo-detector.js"></script>
   <script src="js/key-detector.js"></script>

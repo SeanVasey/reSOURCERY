@@ -2,12 +2,15 @@
  * reSOURCERY - Main Application
  * Premium audio extraction and analysis studio
  *
- * @version 1.3.0
+ * Version is managed centrally via js/version.js (APP_VERSION).
+ *
  * @bugfix Fixed progress callback override in handleFormatSelect
  * @bugfix Fixed progress flow conflicts between app and processor
  * @bugfix Added file size validation
  * @bugfix Added URL protocol validation
  * @bugfix Fixed file input not resetting for repeat selections
+ * @bugfix Fixed worker not terminated on destroy
+ * @bugfix Fixed version inconsistencies via modular version config
  */
 
 class ReSOURCERYApp {
@@ -44,10 +47,11 @@ class ReSOURCERYApp {
     this.cacheElements();
     this.bindEvents();
     this.loadSettings();
+    this.injectVersion();
     this.registerServiceWorker();
     this.initAudioProcessor();
 
-    console.log('reSOURCERY initialized');
+    console.log(`reSOURCERY ${APP_VERSION.display} initialized`);
   }
 
   /**
@@ -115,7 +119,11 @@ class ReSOURCERYApp {
       toastContainer: document.getElementById('toastContainer'),
 
       // Audio
-      audioPlayer: document.getElementById('audioPlayer')
+      audioPlayer: document.getElementById('audioPlayer'),
+
+      // Version
+      versionBadge: document.getElementById('versionBadge'),
+      settingsVersion: document.getElementById('settingsVersion')
     };
 
     this.audioElement = this.elements.audioPlayer;
@@ -725,6 +733,20 @@ class ReSOURCERYApp {
     this.elements.preserveSampleRate.checked = this.settings.preserveSampleRate;
     this.elements.autoDetectMusic.checked = this.settings.autoDetectMusic;
     this.elements.showWaveform.checked = this.settings.showWaveform;
+  }
+
+  /**
+   * Inject version from centralized APP_VERSION config into DOM elements
+   */
+  injectVersion() {
+    if (typeof APP_VERSION !== 'undefined') {
+      if (this.elements.versionBadge) {
+        this.elements.versionBadge.textContent = APP_VERSION.short;
+      }
+      if (this.elements.settingsVersion) {
+        this.elements.settingsVersion.textContent = APP_VERSION.display;
+      }
+    }
   }
 
   /**

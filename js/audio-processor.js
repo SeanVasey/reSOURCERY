@@ -3,11 +3,13 @@
  * Handles audio extraction, analysis, and format conversion
  * Uses FFmpeg.wasm for media processing
  *
- * @version 1.3.0
+ * Version is managed centrally via js/version.js (APP_VERSION).
+ *
  * @bugfix Fixed preserveSampleRate setting not being used
  * @bugfix Integrated Web Worker for non-blocking audio analysis
  * @bugfix Fixed progress flow conflicts with app-level progress tracking
  * @bugfix Added URL protocol validation
+ * @bugfix Fixed worker not terminated on destroy
  */
 
 class AudioProcessor {
@@ -682,6 +684,12 @@ class AudioProcessor {
    * Clean up resources
    */
   destroy() {
+    if (this.analysisWorker) {
+      this.analysisWorker.terminate();
+      this.analysisWorker = null;
+      this.pendingWorkerCalls.clear();
+    }
+
     if (this.audioContext) {
       this.audioContext.close();
       this.audioContext = null;

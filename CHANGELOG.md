@@ -5,6 +5,37 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-09
+
+### Mobile Layout & Code Quality
+
+#### Added
+- `js/version.js` - Centralized version configuration (single source of truth for all version numbers)
+- Dynamic version injection into hero badge and settings footer via `APP_VERSION`
+- iOS-safe `overflow-x: hidden` on `html` element to prevent horizontal scroll
+
+#### Fixed
+- **Font sizing**: Condensed reSOURCERY title (Outfit 700, 2.25rem) to prevent icon and version badge from being pushed off-screen on mobile
+- **Cell overlap**: Reduced analysis item icon size (44px → 36px) and gap/padding on mobile to prevent content overflow in 2-column grid
+- **Padding alignment**: Tightened format button, audio player, and metadata grid spacing for proper mobile containment
+- **Z-index stacking**: Fixed noise texture overlay (z-index 1000 → 2) that sat above settings panel; reordered settings (300), toasts (400) for correct layering
+- **Stacking context**: Added `isolation: isolate` to drop zone to fix `z-index: -1` pseudo-element rendering
+- **Version inconsistency**: Hero badge showed "v2.0", settings footer showed "v1.0.0" — now both read from `APP_VERSION`
+- **Worker memory leak**: `AudioProcessor.destroy()` now terminates the Web Worker and clears pending calls
+- **Duplicate meta tag**: Removed second `apple-mobile-web-app-capable` meta element
+- **Service worker**: Added `version.js` to cached assets, fixed CDN font list to include Outfit font family
+
+#### Changed
+- App logo: 72px → 56px on mobile, 72px on desktop (was 88px)
+- Title font: weight 800 → 700, size 3rem → 2.25rem on mobile
+- Version badge: smaller padding (4px 10px), font-size 0.7rem
+- Brand row: `max-width: 100%` with padding to prevent horizontal overflow
+- Metadata values: added `text-overflow: ellipsis` for long values
+- Analysis items: responsive sizing — compact on mobile, full-size at 480px+
+- Audio player: tighter gap on mobile, expands at 480px breakpoint
+- Service worker cache bumped to `resourcery-v2.1.0`
+- Removed hardcoded version strings from `app.js` and `audio-processor.js` file comments
+
 ## [2.0.0] - 2026-02-08
 
 ### Rebrand — Media Sourceror → reSOURCERY
