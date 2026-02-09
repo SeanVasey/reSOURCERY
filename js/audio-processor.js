@@ -134,8 +134,59 @@ class AudioProcessor {
   }
 
   /**
+   * Fetch a URL with progress tracking via ReadableStream
+   * @param {string} url - URL to fetch
+   * @param {Function} onProgress - Progress callback receiving value 0-1
+   * @returns {Promise<Uint8Array>} - Downloaded data
+   */
+  async fetchWithProgress(url, onProgress) {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.status}`);
+    }
+
+    const contentLength = response.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+    // If no content-length or no ReadableStream support, fallback to simple download
+    if (!total || !response.body) {
+      const data = new Uint8Array(await response.arrayBuffer());
+      if (onProgress) onProgress(1);
+      return data;
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      received += value.length;
+
+      if (onProgress) {
+        onProgress(Math.min(received / total, 1));
+      }
+    }
+
+    // Combine chunks into single Uint8Array
+    const data = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      data.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    return data;
+  }
+
+  /**
    * Initialize FFmpeg
    * Uses single-threaded core for compatibility with GitHub Pages (no SharedArrayBuffer required)
+   * Downloads core files with progress tracking to avoid UI freezing
    */
   async initialize() {
     if (this.isLoaded) return true;
@@ -152,7 +203,7 @@ class AudioProcessor {
         attempts++;
         // Update progress during loading
         if (attempts % 10 === 0) {
-          this.updateProgress(5 + Math.min(attempts / 10, 10));
+          this.updateProgress(5 + Math.min(attempts / 10, 5));
         }
       }
 
@@ -165,7 +216,7 @@ class AudioProcessor {
       }
 
       this.updateStage('Initializing audio engine...');
-      this.updateProgress(15);
+      this.updateProgress(10);
 
       // Access FFmpeg from the global scope (loaded via CDN)
       const FFmpeg = window.FFmpegWASM.FFmpeg;
@@ -189,15 +240,35 @@ class AudioProcessor {
         this.parseFFmpegLog(message);
       });
 
-      this.updateStage('Loading audio processing core...');
-      this.updateProgress(20);
+      // Download FFmpeg core files with progress tracking
+      // Pre-fetching with ReadableStream allows us to report download progress
+      // instead of hanging at a fixed percentage during ffmpeg.load()
+      const coreURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js';
+      const wasmURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm';
 
-      // Load FFmpeg core - using single-threaded version for compatibility
-      // Note: @ffmpeg/core@0.12.x is single-threaded (@ffmpeg/core-mt is multi-threaded)
-      // SharedArrayBuffer is enabled via coi-serviceworker for GitHub Pages compatibility
+      // Download core JS (small file, ~100KB) - progress 10-12%
+      this.updateStage('Downloading audio engine...');
+      const coreJSData = await this.fetchWithProgress(coreURL, (progress) => {
+        this.updateProgress(10 + Math.round(progress * 2));
+      });
+      const coreJSBlob = new Blob([coreJSData], { type: 'text/javascript' });
+      const coreJSBlobURL = URL.createObjectURL(coreJSBlob);
+
+      // Download WASM binary (large file, ~25MB) - progress 12-23%
+      this.updateStage('Loading audio processing core...');
+      const wasmData = await this.fetchWithProgress(wasmURL, (progress) => {
+        this.updateProgress(12 + Math.round(progress * 11));
+      });
+      const wasmBlob = new Blob([wasmData], { type: 'application/wasm' });
+      const wasmBlobURL = URL.createObjectURL(wasmBlob);
+
+      // Load FFmpeg core with pre-downloaded blob URLs (instant since data is in memory)
+      this.updateStage('Initializing audio engine...');
+      this.updateProgress(23);
+
       await this.ffmpeg.load({
-        coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-        wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+        coreURL: coreJSBlobURL,
+        wasmURL: wasmBlobURL,
       });
 
       this.isLoaded = true;

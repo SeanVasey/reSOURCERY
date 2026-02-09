@@ -416,6 +416,13 @@ body::before {
   animation: fadeSlideIn 0.5s ease;
 }
 
+/* Upload section header - stacked vertical layout for visual balance */
+.upload-section .section-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
@@ -745,6 +752,81 @@ body::before {
 .file-size {
   font-size: 0.8125rem;
   color: var(--text-tertiary);
+}
+
+/* Stage Indicator - Circular progress ring with animated stage icon */
+.stage-indicator {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-md);
+}
+
+.stage-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.stage-ring-bg {
+  fill: none;
+  stroke: var(--gray-800);
+  stroke-width: 3;
+}
+
+.stage-ring-fill {
+  fill: none;
+  stroke: var(--indigo-500);
+  stroke-width: 3;
+  stroke-dasharray: 276.5;
+  stroke-dashoffset: 276.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease, stroke 0.5s ease;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.stage-icon-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--indigo-500);
+  transition: color 0.5s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide all stage icons by default, show based on data-stage attribute */
+.stage-icon-inner svg {
+  display: none;
+}
+
+.stage-icon-inner[data-stage="download"] .si-download,
+.stage-icon-inner[data-stage="file"] .si-file,
+.stage-icon-inner[data-stage="waveform"] .si-waveform,
+.stage-icon-inner[data-stage="music"] .si-music,
+.stage-icon-inner[data-stage="check"] .si-check {
+  display: block;
+  animation: stageIconIn 0.35s var(--transition-spring);
+}
+
+@keyframes stageIconIn {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Pulse animation on the active stage icon */
+.stage-icon-inner[data-stage="download"] .si-download,
+.stage-icon-inner[data-stage="file"] .si-file,
+.stage-icon-inner[data-stage="waveform"] .si-waveform,
+.stage-icon-inner[data-stage="music"] .si-music {
+  animation: stageIconIn 0.35s var(--transition-spring), stageIconPulse 2s ease-in-out 0.35s infinite;
+}
+
+@keyframes stageIconPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 /* Progress */

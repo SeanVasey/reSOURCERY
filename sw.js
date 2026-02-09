@@ -21,7 +21,9 @@ const STATIC_ASSETS = [
 const CDN_ASSETS = [
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@700;800;900&family=Reddit+Sans:wght@300;400;500;600;700&display=swap',
   'https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js',
-  'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js'
+  'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js',
+  'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+  'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
 ];
 
 // Install event - cache static assets
