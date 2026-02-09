@@ -2,8 +2,12 @@
  * reSOURCERY - Main Application
  * Premium audio extraction and analysis studio
  *
- * @version 1.2.0
- * @bugfix Now passes preserveSampleRate setting to AudioProcessor
+ * @version 1.3.0
+ * @bugfix Fixed progress callback override in handleFormatSelect
+ * @bugfix Fixed progress flow conflicts between app and processor
+ * @bugfix Added file size validation
+ * @bugfix Added URL protocol validation
+ * @bugfix Fixed file input not resetting for repeat selections
  */
 
 class ReSOURCERYApp {
@@ -193,13 +197,8 @@ class ReSOURCERYApp {
         useWebWorker: true
       });
 
-      this.processor.onProgress = (percent) => {
-        this.updateProgress(percent);
-      };
-
-      this.processor.onStageChange = (stage) => {
-        this.updateStage(stage);
-      };
+      // Set up callbacks
+      this.setupProcessorCallbacks();
 
       console.log('[reSOURCERY] Audio processor created');
     } catch (error) {
@@ -242,12 +241,12 @@ class ReSOURCERYApp {
   }
 
   /**
-   * Validate URL
+   * Validate URL - only allows http and https protocols
    */
   isValidURL(string) {
     try {
-      new URL(string);
-      return true;
+      const url = new URL(string);
+      return url.protocol === 'http:' || url.protocol === 'https:';
     } catch {
       return false;
     }
@@ -291,7 +290,10 @@ class ReSOURCERYApp {
   async handleFileSelect(e) {
     const files = e.target.files;
     if (files.length > 0) {
-      await this.processMedia(files[0], 'file');
+      const file = files[0];
+      // Reset file input so the same file can be re-selected
+      e.target.value = '';
+      await this.processMedia(file, 'file');
     }
   }
 
@@ -299,7 +301,21 @@ class ReSOURCERYApp {
    * Process media (file or URL)
    */
   async processMedia(source, type) {
+    // File size limit: 2GB
+    const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+
     try {
+      // Validate file size
+      if (type === 'file' && source.size > MAX_FILE_SIZE) {
+        this.showToast('File too large. Maximum size is 2 GB.', 'error');
+        return;
+      }
+
+      if (type === 'file' && source.size === 0) {
+        this.showToast('File is empty.', 'error');
+        return;
+      }
+
       // Show processing section
       this.showSection('processing');
 
@@ -314,6 +330,9 @@ class ReSOURCERYApp {
 
       // Reset progress
       this.resetProgress();
+
+      // Ensure progress callback is set correctly for processing
+      this.setupProcessorCallbacks();
 
       // Initialize processor if needed
       if (!this.processor || !this.processor.isLoaded) {
@@ -380,6 +399,20 @@ class ReSOURCERYApp {
       console.error('[reSOURCERY] Processing error:', error);
       this.showToast(error.message || 'Failed to process media. Please try again.', 'error');
       this.resetToUpload();
+    }
+  }
+
+  /**
+   * Set up processor callbacks for progress and stage updates
+   */
+  setupProcessorCallbacks() {
+    if (this.processor) {
+      this.processor.onProgress = (percent) => {
+        this.updateProgress(percent);
+      };
+      this.processor.onStageChange = (stage) => {
+        this.updateStage(stage);
+      };
     }
   }
 
@@ -481,8 +514,11 @@ class ReSOURCERYApp {
     this.elements.downloadStatus.textContent = `Converting to ${format.toUpperCase()}...`;
     this.elements.downloadBarFill.style.width = '0%';
 
+    // Save the original progress callback
+    const originalOnProgress = this.processor.onProgress;
+
     try {
-      // Set up progress callback
+      // Temporarily override progress callback for download bar
       this.processor.onProgress = (percent) => {
         this.elements.downloadBarFill.style.width = `${percent}%`;
       };
@@ -509,6 +545,9 @@ class ReSOURCERYApp {
       this.showToast('Conversion failed: ' + error.message, 'error');
       this.elements.downloadProgress.classList.add('hidden');
       button.classList.remove('selected');
+    } finally {
+      // Restore the original progress callback
+      this.processor.onProgress = originalOnProgress;
     }
   }
 
@@ -696,23 +735,67 @@ class ReSOURCERYApp {
   }
 
   /**
-   * Show toast notification
+   * Show toast notification - uses DOM API to avoid innerHTML
    */
   showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = 'toast';
 
-    const icons = {
-      success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>',
-      error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
-      info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
-    };
+    // Create icon span using DOM API
+    const iconSpan = document.createElement('span');
+    iconSpan.className = `toast-icon ${type}`;
 
-    toast.innerHTML = `
-      <span class="toast-icon ${type}">${icons[type]}</span>
-      <span class="toast-message"></span>
-    `;
-    toast.querySelector('.toast-message').textContent = message;
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', '20');
+    svg.setAttribute('height', '20');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+
+    if (type === 'success') {
+      const polyline = document.createElementNS(svgNS, 'polyline');
+      polyline.setAttribute('points', '20 6 9 17 4 12');
+      svg.appendChild(polyline);
+    } else if (type === 'error') {
+      const circle = document.createElementNS(svgNS, 'circle');
+      circle.setAttribute('cx', '12');
+      circle.setAttribute('cy', '12');
+      circle.setAttribute('r', '10');
+      svg.appendChild(circle);
+      const line1 = document.createElementNS(svgNS, 'line');
+      line1.setAttribute('x1', '15'); line1.setAttribute('y1', '9');
+      line1.setAttribute('x2', '9'); line1.setAttribute('y2', '15');
+      svg.appendChild(line1);
+      const line2 = document.createElementNS(svgNS, 'line');
+      line2.setAttribute('x1', '9'); line2.setAttribute('y1', '9');
+      line2.setAttribute('x2', '15'); line2.setAttribute('y2', '15');
+      svg.appendChild(line2);
+    } else {
+      const circle = document.createElementNS(svgNS, 'circle');
+      circle.setAttribute('cx', '12');
+      circle.setAttribute('cy', '12');
+      circle.setAttribute('r', '10');
+      svg.appendChild(circle);
+      const line1 = document.createElementNS(svgNS, 'line');
+      line1.setAttribute('x1', '12'); line1.setAttribute('y1', '16');
+      line1.setAttribute('x2', '12'); line1.setAttribute('y2', '12');
+      svg.appendChild(line1);
+      const line2 = document.createElementNS(svgNS, 'line');
+      line2.setAttribute('x1', '12'); line2.setAttribute('y1', '8');
+      line2.setAttribute('x2', '12.01'); line2.setAttribute('y2', '8');
+      svg.appendChild(line2);
+    }
+
+    iconSpan.appendChild(svg);
+    toast.appendChild(iconSpan);
+
+    // Create message span using textContent (safe from XSS)
+    const messageSpan = document.createElement('span');
+    messageSpan.className = 'toast-message';
+    messageSpan.textContent = message;
+    toast.appendChild(messageSpan);
 
     this.elements.toastContainer.appendChild(toast);
 
