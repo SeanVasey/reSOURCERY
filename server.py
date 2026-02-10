@@ -11,7 +11,7 @@ import sys
 PORT = 50910
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
-class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
     
@@ -22,7 +22,9 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 def main():
-    with socketserver.TCPServer(("127.0.0.1", PORT), MyHTTPRequestHandler) as httpd:
+    # Enable address reuse to avoid TIME_WAIT issues on restart
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("127.0.0.1", PORT), CORSHTTPRequestHandler) as httpd:
         print(f"reSOURCERY server running at http://127.0.0.1:{PORT}/")
         print(f"Serving files from: {DIRECTORY}")
         print("Press Ctrl+C to stop")

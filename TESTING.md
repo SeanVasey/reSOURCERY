@@ -46,6 +46,12 @@ The HTML content of index.html starting with:
 
 ## Running the Server
 
+### Prerequisites
+Ensure the start script is executable (only needed on first use):
+```bash
+chmod +x start-server.sh
+```
+
 ### Method 1: Using the start script
 ```bash
 ./start-server.sh
