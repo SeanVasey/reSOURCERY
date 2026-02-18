@@ -54,10 +54,22 @@ reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from
 git clone https://github.com/SeanVasey/reSOURCERY.git
 cd reSOURCERY
 
-# Serve with any static file server
+# Option 1: Use the included server (recommended for development)
+./start-server.sh
+# or
+python3 server.py
+
+# Option 2: Use any static file server
 npx serve .
 # or
 python -m http.server 8080
+```
+
+The included `server.py` serves the application on **port 50910** with proper CORS headers for cross-origin isolation.
+
+**Test the server:**
+```bash
+curl -I http://127.0.0.1:50910/
 ```
 
 > **Note**: Requires HTTPS or localhost for full PWA + Service Worker functionality.
