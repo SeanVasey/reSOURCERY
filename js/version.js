@@ -10,7 +10,7 @@
 const APP_VERSION = Object.freeze({
   major: 2,
   minor: 1,
-  patch: 0,
+  patch: 1,
 
   /** Full semver string, e.g. "2.1.0" */
   get full() {

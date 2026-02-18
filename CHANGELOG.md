@@ -5,6 +5,21 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-02-18
+
+### Upload/Conversion Reliability
+
+#### Fixed
+- FFmpeg bootstrap could stall around 20–30% because `ffmpeg-core.worker.js` was not explicitly resolved when loading from blob URLs; the worker script is now fetched and passed to `ffmpeg.load()` directly.
+- Added timeout protection around FFmpeg engine loading so users get a clear recoverable error instead of an indefinite spinner.
+- Improved local file ingestion progress using `FileReader` progress events to keep the upload progress bar moving during large file reads.
+- Added richer FFmpeg bootstrap diagnostic logging (core URLs and online state) for easier production debugging.
+- Service worker CDN list now includes `ffmpeg-core.worker.js` so offline/runtime caching aligns with runtime dependencies.
+
+#### Added
+- CI workflow (`.github/workflows/ci.yml`) to enforce JavaScript syntax and repository baseline checks on PRs and pushes to `main`.
+- `.editorconfig` and `docs/MANIFEST.md` as repository baseline governance artifacts.
+
 ## [2.1.0] - 2026-02-09
 
 ### Mobile Layout & Code Quality

@@ -14,6 +14,12 @@
 
 class AudioProcessor {
   constructor(options = {}) {
+    this.ffmpegCoreConfig = {
+      coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+      wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+      workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js'
+    };
+
     this.ffmpeg = null;
     this.isLoaded = false;
     this.audioContext = null;
@@ -184,6 +190,51 @@ class AudioProcessor {
   }
 
   /**
+   * Read local file with progress tracking
+   * @param {File} file - Local file
+   * @param {Function} onProgress - Progress callback receiving value 0-1
+   * @returns {Promise<Uint8Array>}
+   */
+  readLocalFileWithProgress(file, onProgress) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onprogress = (event) => {
+        if (!onProgress || !event.lengthComputable) return;
+        onProgress(Math.min(event.loaded / event.total, 1));
+      };
+
+      reader.onerror = () => {
+        reject(new Error(`Failed to read file: ${file.name}`));
+      };
+
+      reader.onload = () => {
+        if (onProgress) onProgress(1);
+        resolve(new Uint8Array(reader.result));
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  /**
+   * Guard async stages from hanging forever due CDN/runtime failures
+   * @param {Promise} promise - Promise to guard
+   * @param {number} timeoutMs - Timeout in milliseconds
+   * @param {string} errorMessage - Error shown when timeout expires
+   * @returns {Promise}
+   */
+  withTimeout(promise, timeoutMs, errorMessage) {
+    let timeoutId;
+
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+    });
+
+    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+  }
+
+  /**
    * Initialize FFmpeg
    * Uses single-threaded core for compatibility with GitHub Pages (no SharedArrayBuffer required)
    * Downloads core files with progress tracking to avoid UI freezing
@@ -243,8 +294,8 @@ class AudioProcessor {
       // Download FFmpeg core files with progress tracking
       // Pre-fetching with ReadableStream allows us to report download progress
       // instead of hanging at a fixed percentage during ffmpeg.load()
-      const coreURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js';
-      const wasmURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm';
+      const { coreURL, wasmURL, workerURL } = this.ffmpegCoreConfig;
+      const objectURLs = [];
 
       // Download core JS (small file, ~100KB) - progress 10-12%
       this.updateStage('Downloading audio engine...');
@@ -253,6 +304,7 @@ class AudioProcessor {
       });
       const coreJSBlob = new Blob([coreJSData], { type: 'text/javascript' });
       const coreJSBlobURL = URL.createObjectURL(coreJSBlob);
+      objectURLs.push(coreJSBlobURL);
 
       // Download WASM binary (large file, ~25MB) - progress 12-23%
       this.updateStage('Loading audio processing core...');
@@ -261,15 +313,36 @@ class AudioProcessor {
       });
       const wasmBlob = new Blob([wasmData], { type: 'application/wasm' });
       const wasmBlobURL = URL.createObjectURL(wasmBlob);
+      objectURLs.push(wasmBlobURL);
+
+      // Download worker script so ffmpeg.load can resolve worker from blob URLs.
+      // Without this, the loader can stall around ~20-30% while trying to fetch
+      // ffmpeg-core.worker.js relative to a blob: URL.
+      this.updateStage('Preparing audio worker...');
+      const workerData = await this.fetchWithProgress(workerURL, (progress) => {
+        this.updateProgress(23 + Math.round(progress * 2));
+      });
+      const workerBlob = new Blob([workerData], { type: 'text/javascript' });
+      const workerBlobURL = URL.createObjectURL(workerBlob);
+      objectURLs.push(workerBlobURL);
 
       // Load FFmpeg core with pre-downloaded blob URLs (instant since data is in memory)
       this.updateStage('Initializing audio engine...');
-      this.updateProgress(23);
+      this.updateProgress(25);
 
-      await this.ffmpeg.load({
-        coreURL: coreJSBlobURL,
-        wasmURL: wasmBlobURL,
-      });
+      try {
+        await this.withTimeout(
+          this.ffmpeg.load({
+            coreURL: coreJSBlobURL,
+            wasmURL: wasmBlobURL,
+            workerURL: workerBlobURL,
+          }),
+          45000,
+          'Audio engine load timed out. Please refresh and retry.'
+        );
+      } finally {
+        objectURLs.forEach((url) => URL.revokeObjectURL(url));
+      }
 
       this.isLoaded = true;
       this.updateStage('Audio engine ready');
@@ -279,6 +352,10 @@ class AudioProcessor {
       return true;
     } catch (error) {
       console.error('[AudioProcessor] Failed to load FFmpeg:', error);
+      console.error('[AudioProcessor] FFmpeg bootstrap context:', {
+        config: this.ffmpegCoreConfig,
+        isOnline: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
+      });
       this.updateStage('Error loading audio engine');
       throw new Error(error.message || 'Failed to initialize audio processor. Please refresh and try again.');
     }
@@ -343,7 +420,11 @@ class AudioProcessor {
       this.updateStage('Loading media...');
       this.updateProgress(25);
 
-      const fileData = await this.fetchFile(file);
+      const fileData = await this.readLocalFileWithProgress(file, (progress) => {
+        this.updateProgress(25 + Math.round(progress * 8));
+      });
+      this.updateStage('Preparing media for extraction...');
+      this.updateProgress(33);
       await this.ffmpeg.writeFile(inputName, fileData);
 
       this.updateProgress(35);
