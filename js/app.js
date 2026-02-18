@@ -21,6 +21,7 @@ class ReSOURCERYApp {
     this.isPlaying = false;
     this.currentResult = null;
     this.waveformData = [];
+    this.audioObjectURL = null;
 
     // DOM Elements
     this.elements = {};
@@ -359,7 +360,9 @@ class ReSOURCERYApp {
           this.setStepCompleted('step1');
         } catch (initError) {
           console.error('[reSOURCERY] Initialization failed:', initError);
-          throw new Error('Failed to load audio engine. Please refresh the page and try again.');
+          // Processor resets its own state on failure, so retry is possible
+          // without a page refresh. Surface the specific error to the user.
+          throw new Error(initError.message || 'Failed to load audio engine. Please try again.');
         }
       } else {
         this.setStepCompleted('step1');
@@ -451,10 +454,15 @@ class ReSOURCERYApp {
       this.elements.metaKey.textContent = '--';
     }
 
+    // Revoke previous audio URL if any
+    if (this.audioObjectURL) {
+      URL.revokeObjectURL(this.audioObjectURL);
+    }
+
     // Create audio blob for playback
     const wavBlob = new Blob([result.wavData], { type: 'audio/wav' });
-    const audioUrl = URL.createObjectURL(wavBlob);
-    this.audioElement.src = audioUrl;
+    this.audioObjectURL = URL.createObjectURL(wavBlob);
+    this.audioElement.src = this.audioObjectURL;
 
     // Draw waveform
     if (this.settings.showWaveform) {
@@ -648,10 +656,14 @@ class ReSOURCERYApp {
     this.elements.fileInput.value = '';
     this.currentResult = null;
 
-    // Stop any playing audio
+    // Stop any playing audio and revoke object URL
     if (this.audioElement) {
       this.audioElement.pause();
       this.audioElement.src = '';
+    }
+    if (this.audioObjectURL) {
+      URL.revokeObjectURL(this.audioObjectURL);
+      this.audioObjectURL = null;
     }
     this.isPlaying = false;
     this.elements.playBtn.classList.remove('playing');

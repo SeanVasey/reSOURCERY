@@ -246,10 +246,19 @@ class AudioProcessor {
       this.updateStage('Loading FFmpeg...');
       this.updateProgress(5);
 
+      // Check for early CDN load failures detected by script onerror handlers
+      if (window.FFmpegLoadErrors?.length > 0) {
+        throw new Error('FFmpeg CDN scripts failed to load. Please check your internet connection and try again.');
+      }
+
       // Wait for FFmpeg to be available from CDN
       let attempts = 0;
       const maxAttempts = 100; // 10 seconds max wait
       while ((!window.FFmpegWASM?.FFmpeg || !window.FFmpegUtil?.fetchFile) && attempts < maxAttempts) {
+        // Bail early if CDN errors were detected during polling
+        if (window.FFmpegLoadErrors?.length > 0) {
+          throw new Error('FFmpeg CDN scripts failed to load. Please check your internet connection and try again.');
+        }
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
         // Update progress during loading
@@ -356,6 +365,11 @@ class AudioProcessor {
         config: this.ffmpegCoreConfig,
         isOnline: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
       });
+
+      // Reset state so initialize() can be retried without a page refresh
+      this.ffmpeg = null;
+      this.isLoaded = false;
+
       this.updateStage('Error loading audio engine');
       throw new Error(error.message || 'Failed to initialize audio processor. Please refresh and try again.');
     }
