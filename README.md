@@ -2,7 +2,7 @@
 
 > Premium audio extraction and analysis studio — Extract the magic from your media
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.1.1-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg)]()
 [![PWA](https://img.shields.io/badge/PWA-enabled-blueviolet.svg)]()
@@ -107,11 +107,30 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.1.1   | 2026-02-18 | FFmpeg upload/initialization reliability fixes, CI baseline checks |
 | 2.1.0   | 2026-02-09 | Mobile layout fixes, modular versioning, code cleanup |
 | 2.0.0   | 2026-02-08 | Media Sourceror → reSOURCERY rebrand   |
 | 1.2.0   | 2026-02-02 | Bug fixes (sample rate, Web Worker)    |
 | 1.1.0   | 2026-02-02 | Critical FFT performance fixes         |
 | 1.0.0   | 2026-02-02 | Initial release                        |
+
+## Development Checks
+
+Run these checks before committing:
+
+```bash
+# JavaScript syntax checks
+node --check js/version.js
+node --check js/fft.js
+node --check js/tempo-detector.js
+node --check js/key-detector.js
+node --check js/analysis-worker.js
+node --check js/audio-processor.js
+node --check js/app.js
+node --check sw.js
+```
+
+GitHub Actions runs the same checks on pull requests and pushes to `main` (see `.github/workflows/ci.yml`).
 
 ## Technology Stack
 
