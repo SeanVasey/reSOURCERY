@@ -450,9 +450,14 @@
     // FFmpeg.wasm setup - expose modules globally
     window.FFmpegWASM = {};
     window.FFmpegUtil = {};
+    window.FFmpegLoadErrors = [];
   </script>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js" onload="window.FFmpegWASM.FFmpeg = FFmpegWASM.FFmpeg"></script>
-  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js" onload="window.FFmpegUtil.fetchFile = FFmpegUtil.fetchFile"></script>
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js"
+    onload="window.FFmpegWASM.FFmpeg = FFmpegWASM.FFmpeg"
+    onerror="console.error('[reSOURCERY] Failed to load FFmpeg library from CDN'); window.FFmpegLoadErrors.push('ffmpeg')"></script>
+  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"
+    onload="window.FFmpegUtil.fetchFile = FFmpegUtil.fetchFile"
+    onerror="console.error('[reSOURCERY] Failed to load FFmpeg utilities from CDN'); window.FFmpegLoadErrors.push('util')"></script>
   <script src="js/version.js"></script>
   <script src="js/fft.js"></script>
   <script src="js/tempo-detector.js"></script>
