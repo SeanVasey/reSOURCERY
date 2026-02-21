@@ -1604,7 +1604,7 @@ body::before {
 
 .toast {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-md);
   padding: var(--space-md);
   background: var(--gray-800);
@@ -1613,6 +1613,8 @@ body::before {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   animation: toastIn 0.3s ease;
   pointer-events: auto;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .toast.toast-out {
@@ -1661,6 +1663,13 @@ body::before {
   flex: 1;
   font-size: 0.875rem;
   color: var(--text-primary);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  max-height: 3.9em;
 }
 
 /* ============================================

@@ -5,6 +5,30 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-02-21
+
+### Audio Processing & Deployment
+
+#### Fixed
+- **URL processing stall/failure**: `processURL` now uses `fetchWithProgress` with ReadableStream progress tracking instead of a bare `fetch().blob()` call that provided no progress feedback and caused the UI to freeze at 25%.
+- **Sample rate crash**: `extractAudio` now defaults to 48000 Hz when FFmpeg probe fails to detect a valid sample rate (previously passed `0` to FFmpeg, causing extraction failure).
+- **Error message overflow**: Toast notifications now constrain long error messages with word-break, line-clamping, and truncation to prevent text from leaking into the main body.
+- **Re-entrant processing**: Added `isProcessing` guard to prevent concurrent `processFile`/`processURL` calls from corrupting state.
+- **Metadata reset**: Audio metadata is now reset at the start of each processing run to prevent stale values from a previous file leaking into the next result.
+
+#### Added
+- `vercel.json` — Vercel deployment configuration with `Cross-Origin-Embedder-Policy: credentialless` and `Cross-Origin-Opener-Policy: same-origin` headers for SharedArrayBuffer support, cache headers for static assets, and SPA rewrite rules.
+- `CLAUDE.md` — Project context and directives for Claude Code sessions.
+- URL fetch timeout (120 seconds) to prevent indefinite hangs on slow or unresponsive servers.
+- URL download size validation (2 GB limit, matching file upload limit).
+- User-friendly error messages for CORS failures and network errors during URL fetching.
+
+#### Changed
+- README: Added centered app icon, Vercel deployment badge, deployment instructions, corrected version references throughout.
+- Service worker cache bumped to `resourcery-v2.2.0`.
+- `fetchWithProgress` now catches network errors explicitly for clearer error reporting.
+- URL fetch no longer double-reads the file (fetched data is written directly to FFmpeg filesystem instead of being re-read through `processFile`).
+
 ## [2.1.1] - 2026-02-18
 
 ### Upload/Conversion Reliability
