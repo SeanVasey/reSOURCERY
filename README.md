@@ -1,15 +1,26 @@
-# reSOURCERY
+<p align="center">
+  <img src="icons/reSOURCERY_optimized.svg" alt="reSOURCERY" width="128" height="128">
+</p>
 
-> Premium audio extraction and analysis studio — Extract the magic from your media
+<h1 align="center">reSOURCERY</h1>
 
-[![Version](https://img.shields.io/badge/version-2.1.1-blue.svg)](CHANGELOG.md)
-[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg)]()
-[![PWA](https://img.shields.io/badge/PWA-enabled-blueviolet.svg)]()
-[![iOS](https://img.shields.io/badge/iOS-primary-000000.svg?logo=apple&logoColor=white)]()
-[![Security](https://img.shields.io/badge/security-fixes%20applied-brightgreen.svg)](SECURITY.md)
-[![Mobile First](https://img.shields.io/badge/design-mobile%20first-orange.svg)]()
-[![Status](https://img.shields.io/badge/status-active-success.svg)]()
+<p align="center">
+  <em>Premium audio extraction and analysis studio — Extract the magic from your media</em>
+</p>
+
+<p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.2.0-blue.svg" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/PWA-enabled-blueviolet.svg" alt="PWA">
+  <img src="https://img.shields.io/badge/iOS-primary-000000.svg?logo=apple&logoColor=white" alt="iOS">
+  <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-fixes%20applied-brightgreen.svg" alt="Security"></a>
+  <img src="https://img.shields.io/badge/design-mobile%20first-orange.svg" alt="Mobile First">
+  <img src="https://img.shields.io/badge/deploy-Vercel%20ready-black.svg?logo=vercel&logoColor=white" alt="Vercel">
+  <img src="https://img.shields.io/badge/status-active-success.svg" alt="Status">
+</p>
+
+---
 
 reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from multimedia sources. It runs entirely in the browser using WebAssembly-based audio processing — no server, no uploads, fully offline-capable.
 
@@ -18,7 +29,7 @@ reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from
 ### Audio Extraction
 - Extract audio from video files (MP4, MOV, AVI, MKV, WEBM)
 - Process audio files (MP3, WAV, M4A, FLAC, etc.)
-- Fetch media directly from URLs
+- Fetch media directly from URLs with progress tracking
 - Drag & drop or click-to-browse file selection
 
 ### Export Formats (Highest Quality Only)
@@ -40,6 +51,7 @@ reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from
 - Web Worker support for non-blocking analysis
 - Offline-capable PWA with network-first caching
 - Centralized version management (`js/version.js`)
+- Vercel deployment with COOP/COEP headers (`vercel.json`)
 
 ## Installation
 
@@ -74,13 +86,24 @@ curl -I http://127.0.0.1:50910/
 
 > **Note**: Requires HTTPS or localhost for full PWA + Service Worker functionality.
 
+### Vercel Deployment
+
+The project includes `vercel.json` pre-configured with:
+- `Cross-Origin-Embedder-Policy: credentialless` — enables SharedArrayBuffer for FFmpeg.wasm
+- `Cross-Origin-Opener-Policy: same-origin` — required for cross-origin isolation
+- Cache headers for static assets
+- SPA rewrite rules
+
+Deploy directly from the repository — no build step required.
+
 ## Architecture
 
 ```
 reSOURCERY/
 ├── index.html              # Main PWA interface
 ├── manifest.json           # PWA manifest (standalone, portrait)
-├── sw.js                   # Service worker (v2.1.0)
+├── vercel.json             # Vercel deployment headers & config
+├── sw.js                   # Service worker (v2.2.0)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
 │   └── styles.css          # Dark slate + indigo/cyan wizard theme
@@ -112,6 +135,7 @@ See [SECURITY.md](SECURITY.md) for:
 - No data is transmitted to external servers
 - No persistent storage of media files
 - CSP-ready architecture
+- URL validation (HTTP/HTTPS only, protocol enforcement)
 
 ## Version History
 
@@ -119,6 +143,8 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.2.0   | 2026-02-21 | Fix audio upload/URL processing, Vercel deployment, security hardening |
+| 2.1.2   | 2026-02-19 | Version config patch alignment         |
 | 2.1.1   | 2026-02-18 | FFmpeg upload/initialization reliability fixes, CI baseline checks |
 | 2.1.0   | 2026-02-09 | Mobile layout fixes, modular versioning, code cleanup |
 | 2.0.0   | 2026-02-08 | Media Sourceror → reSOURCERY rebrand   |
@@ -140,6 +166,11 @@ node --check js/analysis-worker.js
 node --check js/audio-processor.js
 node --check js/app.js
 node --check sw.js
+
+# Repository baseline checks
+test -f README.md && test -f CHANGELOG.md && test -f LICENSE && \
+test -f SECURITY.md && test -f index.html && test -f css/styles.css && \
+test -f js/app.js && test -f js/audio-processor.js && echo "All checks passed"
 ```
 
 GitHub Actions runs the same checks on pull requests and pushes to `main` (see `.github/workflows/ci.yml`).

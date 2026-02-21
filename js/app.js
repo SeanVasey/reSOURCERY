@@ -374,10 +374,15 @@ class ReSOURCERYApp {
       this.updateStage(type === 'file' ? 'Processing file...' : 'Fetching media...');
       let result;
 
-      if (type === 'file') {
-        result = await this.processor.processFile(source);
-      } else {
-        result = await this.processor.processURL(source);
+      try {
+        if (type === 'file') {
+          result = await this.processor.processFile(source);
+        } else {
+          result = await this.processor.processURL(source);
+        }
+      } catch (processingError) {
+        // Mark step2 as failed and re-throw for outer handler
+        throw processingError;
       }
 
       this.setStepCompleted('step2');
@@ -410,7 +415,10 @@ class ReSOURCERYApp {
 
     } catch (error) {
       console.error('[reSOURCERY] Processing error:', error);
-      this.showToast(error.message || 'Failed to process media. Please try again.', 'error');
+      // Truncate error messages to prevent UI overflow
+      const msg = error.message || 'Failed to process media. Please try again.';
+      const truncated = msg.length > 150 ? msg.slice(0, 150) + '...' : msg;
+      this.showToast(truncated, 'error');
       this.resetToUpload();
     }
   }

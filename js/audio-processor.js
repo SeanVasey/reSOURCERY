@@ -57,6 +57,9 @@ class AudioProcessor {
     this.onProgress = null;
     this.onStageChange = null;
 
+    // Guard against concurrent processing
+    this.isProcessing = false;
+
     // Initialize worker
     this.initWorker();
   }
@@ -146,10 +149,15 @@ class AudioProcessor {
    * @returns {Promise<Uint8Array>} - Downloaded data
    */
   async fetchWithProgress(url, onProgress) {
-    const response = await fetch(url);
+    let response;
+    try {
+      response = await fetch(url);
+    } catch (networkError) {
+      throw new Error('Network request failed. Check your connection and try again.');
+    }
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${url}: ${response.status}`);
+      throw new Error(`Failed to fetch: HTTP ${response.status}`);
     }
 
     const contentLength = response.headers.get('content-length');
@@ -422,11 +430,18 @@ class AudioProcessor {
    * @param {File} file - The media file to process
    */
   async processFile(file) {
+    if (this.isProcessing) {
+      throw new Error('A file is already being processed. Please wait or cancel first.');
+    }
+
     if (!this.isLoaded) {
       await this.initialize();
     }
 
+    this.isProcessing = true;
     this.currentFile = file;
+    // Reset metadata for new file
+    this.metadata = { duration: 0, sampleRate: 0, originalSampleRate: 0, channels: 0, bitDepth: 0, codec: '', bitrate: 0 };
     const inputName = 'input' + this.getExtension(file.name);
 
     try {
@@ -474,12 +489,14 @@ class AudioProcessor {
       // Clean up input file
       await this.ffmpeg.deleteFile(inputName);
 
+      this.isProcessing = false;
       return {
         metadata: this.metadata,
         audioBuffer: this.audioBuffer,
         wavData: wavData
       };
     } catch (error) {
+      this.isProcessing = false;
       console.error('Error processing file:', error);
       throw error;
     }
@@ -490,40 +507,130 @@ class AudioProcessor {
    * @param {string} url - The URL to process
    */
   async processURL(url) {
+    if (this.isProcessing) {
+      throw new Error('A file is already being processed. Please wait or cancel first.');
+    }
+
     if (!this.isLoaded) {
       await this.initialize();
     }
 
+    this.isProcessing = true;
+    // Reset metadata for new processing
+    this.metadata = { duration: 0, sampleRate: 0, originalSampleRate: 0, channels: 0, bitDepth: 0, codec: '', bitrate: 0 };
+
     // Validate URL protocol
+    let urlObj;
     try {
-      const urlObj = new URL(url);
+      urlObj = new URL(url);
       if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        this.isProcessing = false;
         throw new Error('Only HTTP and HTTPS URLs are supported');
       }
     } catch (e) {
-      throw new Error('Invalid URL: ' + e.message);
+      this.isProcessing = false;
+      if (e.message.includes('Only HTTP')) throw e;
+      throw new Error('Invalid URL format');
     }
 
     try {
       this.updateStage('Fetching media...');
       this.updateProgress(25);
 
-      // Fetch the URL content
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to fetch URL');
+      // Fetch the URL content with progress tracking and timeout
+      const fetchPromise = this.fetchWithProgress(url, (progress) => {
+        // Map fetch progress to 25-35% range
+        this.updateProgress(25 + Math.round(progress * 10));
+      });
+
+      const fileData = await this.withTimeout(
+        fetchPromise,
+        120000,
+        'URL fetch timed out. The server may be slow or unreachable.'
+      );
+
+      // Validate that we received data
+      if (!fileData || fileData.length === 0) {
+        throw new Error('No data received from URL');
       }
 
-      const blob = await response.blob();
-      const fileName = this.extractFileName(url) || 'media';
-      const file = new File([blob], fileName, { type: blob.type });
+      // Size limit check (2GB)
+      const MAX_URL_SIZE = 2 * 1024 * 1024 * 1024;
+      if (fileData.length > MAX_URL_SIZE) {
+        throw new Error('Downloaded file too large. Maximum size is 2 GB.');
+      }
 
-      // Process as file
-      return await this.processFile(file);
+      this.updateProgress(35);
+
+      const fileName = this.extractFileName(url) || 'media';
+      const file = new File([fileData], fileName);
+      this.currentFile = file;
+
+      // Continue processing from the file-write stage (skip re-reading the file)
+      const inputName = 'input' + this.getExtension(fileName);
+
+      this.updateStage('Preparing media for extraction...');
+      await this.ffmpeg.writeFile(inputName, fileData);
+      this.updateProgress(37);
+
+      // Step 2: Probe the file for audio streams (progress 37-40)
+      this.updateStage('Detecting audio streams...');
+      await this.probeFile(inputName);
+      this.updateProgress(40);
+
+      // Step 3: Extract audio to WAV (progress 40-70)
+      this.updateStage('Extracting audio...');
+      const wavData = await this.extractAudio(inputName);
+      this.updateProgress(70);
+
+      // Step 4: Load into Web Audio API for analysis (progress 70-80)
+      this.updateStage('Analyzing audio...');
+      await this.loadAudioBuffer(wavData);
+      this.updateProgress(80);
+
+      // Step 5: Detect tempo and key (progress 80-95)
+      this.updateStage('Detecting tempo & key...');
+      const analysisResult = await this.analyzeAudio(this.audioBuffer);
+
+      this.metadata.tempo = analysisResult.tempo;
+      this.metadata.key = analysisResult.key;
+
+      this.updateProgress(95);
+      this.updateStage('Analysis complete');
+
+      // Clean up input file
+      await this.ffmpeg.deleteFile(inputName);
+
+      this.isProcessing = false;
+      return {
+        metadata: this.metadata,
+        audioBuffer: this.audioBuffer,
+        wavData: wavData
+      };
     } catch (error) {
+      this.isProcessing = false;
       console.error('Error processing URL:', error);
-      throw new Error('Failed to process URL: ' + error.message);
+      // Provide user-friendly error messages for common fetch failures
+      const msg = error.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        throw new Error('Could not fetch URL. The server may block cross-origin requests (CORS).');
+      }
+      if (msg.includes('timed out')) {
+        throw error;
+      }
+      throw new Error('Failed to process URL: ' + this.truncateError(msg));
     }
+  }
+
+  /**
+   * Truncate error messages to prevent UI overflow
+   * @param {string} message - Error message
+   * @param {number} maxLen - Maximum length
+   * @returns {string}
+   */
+  truncateError(message, maxLen = 120) {
+    if (!message) return 'Unknown error';
+    return message.length > maxLen ? message.slice(0, maxLen) + '...' : message;
   }
 
   /**
@@ -551,19 +658,19 @@ class AudioProcessor {
     // Determine target sample rate based on settings
     let targetSampleRate;
 
-    if (this.settings.preserveSampleRate) {
-      // Preserve original sample rate when setting is enabled
+    if (this.settings.preserveSampleRate && this.metadata.sampleRate >= 8000 && this.metadata.sampleRate <= 384000) {
+      // Preserve original sample rate when setting is enabled and rate is valid
       targetSampleRate = this.metadata.sampleRate;
-
-      // Validate sample rate is within reasonable bounds for WAV
-      if (targetSampleRate < 8000 || targetSampleRate > 384000) {
-        console.warn(`[AudioProcessor] Unusual sample rate ${targetSampleRate}Hz, defaulting to 48000Hz`);
-        targetSampleRate = 48000;
-      }
+    } else if (this.metadata.sampleRate === 44100) {
+      // Preserve 44.1kHz for CD-quality sources
+      targetSampleRate = 44100;
+    } else if (this.metadata.sampleRate >= 8000 && this.metadata.sampleRate <= 384000) {
+      // Use detected rate if valid
+      targetSampleRate = this.metadata.sampleRate;
     } else {
-      // When not preserving, standardize to common rates
-      // Preserve 44.1kHz for CD-quality sources, otherwise use 48kHz
-      targetSampleRate = this.metadata.sampleRate === 44100 ? 44100 : 48000;
+      // Default to 48kHz when sample rate is unknown, 0, or out of range
+      console.warn(`[AudioProcessor] Invalid or unknown sample rate ${this.metadata.sampleRate}Hz, defaulting to 48000Hz`);
+      targetSampleRate = 48000;
     }
 
     console.log(`[AudioProcessor] Sample rate: ${this.metadata.originalSampleRate}Hz -> ${targetSampleRate}Hz (preserve: ${this.settings.preserveSampleRate})`);
@@ -850,6 +957,8 @@ class AudioProcessor {
    * Clean up resources
    */
   destroy() {
+    this.isProcessing = false;
+
     if (this.analysisWorker) {
       this.analysisWorker.terminate();
       this.analysisWorker = null;

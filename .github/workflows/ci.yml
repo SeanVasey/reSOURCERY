@@ -36,8 +36,10 @@ jobs:
           test -f CHANGELOG.md
           test -f LICENSE
           test -f SECURITY.md
+          test -f CLAUDE.md
           test -f .editorconfig
           test -f index.html
+          test -f vercel.json
           test -f css/styles.css
           test -f js/app.js
           test -f js/audio-processor.js

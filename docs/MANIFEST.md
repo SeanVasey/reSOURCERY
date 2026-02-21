@@ -13,8 +13,12 @@
 - `sw.js`: Service worker cache/runtime logic.
 - `coi-serviceworker.js`: Cross-origin isolation support.
 
+## Deployment
+- `vercel.json`: Vercel deployment headers (COOP/COEP), cache config, and SPA rewrites.
+
 ## Documentation and Governance
 - `README.md`: Product overview, usage, and development instructions.
 - `CHANGELOG.md`: Versioned release notes.
 - `SECURITY.md`: Vulnerability disclosure process.
+- `CLAUDE.md`: Project context and directives for Claude Code sessions.
 - `LICENSE`: Project license.

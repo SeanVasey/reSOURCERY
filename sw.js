@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resourcery-v2.1.2';
+const CACHE_NAME = 'resourcery-v2.2.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
