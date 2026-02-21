@@ -144,20 +144,44 @@ class AudioProcessor {
 
   /**
    * Fetch a URL with progress tracking via ReadableStream
+   * Retries on 5xx errors with exponential backoff (mobile connections can be flaky)
    * @param {string} url - URL to fetch
    * @param {Function} onProgress - Progress callback receiving value 0-1
+   * @param {number} maxRetries - Maximum retry attempts for server errors
    * @returns {Promise<Uint8Array>} - Downloaded data
    */
-  async fetchWithProgress(url, onProgress) {
+  async fetchWithProgress(url, onProgress, maxRetries = 3) {
     let response;
-    try {
-      response = await fetch(url);
-    } catch (networkError) {
-      throw new Error('Network request failed. Check your connection and try again.');
-    }
+    let lastError;
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: HTTP ${response.status}`);
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        response = await fetch(url);
+      } catch (networkError) {
+        lastError = networkError;
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          console.warn(`[AudioProcessor] Fetch attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw new Error('Network request failed. Check your connection and try again.');
+      }
+
+      // Retry on server errors (5xx) which include the SW's 503 fallback
+      if (response.status >= 500 && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`[AudioProcessor] HTTP ${response.status} on attempt ${attempt + 1}, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: HTTP ${response.status}`);
+      }
+
+      // Success — break out of retry loop
+      break;
     }
 
     const contentLength = response.headers.get('content-length');
@@ -426,6 +450,67 @@ class AudioProcessor {
   }
 
   /**
+   * Supported media extensions for FFmpeg.wasm processing
+   */
+  static SUPPORTED_EXTENSIONS = new Set([
+    '.mp4', '.mov', '.m4v', '.mkv', '.avi', '.webm', '.flv', '.wmv', '.3gp',
+    '.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.wma', '.opus'
+  ]);
+
+  /**
+   * Infer a file extension from the MIME type when the filename has none.
+   * iPhones sometimes provide files with generic names like "image" or "video".
+   * @param {File} file
+   * @returns {string} extension including the dot, e.g. '.mov'
+   */
+  inferExtension(file) {
+    const ext = this.getExtension(file.name);
+    if (ext && AudioProcessor.SUPPORTED_EXTENSIONS.has(ext.toLowerCase())) {
+      return ext;
+    }
+
+    // Map common MIME types to extensions
+    const mimeMap = {
+      'video/quicktime': '.mov',
+      'video/mp4': '.mp4',
+      'video/x-m4v': '.m4v',
+      'video/webm': '.webm',
+      'video/x-matroska': '.mkv',
+      'video/avi': '.avi',
+      'video/x-msvideo': '.avi',
+      'video/3gpp': '.3gp',
+      'audio/mpeg': '.mp3',
+      'audio/mp4': '.m4a',
+      'audio/x-m4a': '.m4a',
+      'audio/wav': '.wav',
+      'audio/x-wav': '.wav',
+      'audio/aac': '.aac',
+      'audio/flac': '.flac',
+      'audio/ogg': '.ogg',
+      'audio/webm': '.webm',
+      'audio/opus': '.opus'
+    };
+
+    if (file.type && mimeMap[file.type]) {
+      console.log(`[AudioProcessor] Inferred extension ${mimeMap[file.type]} from MIME type ${file.type}`);
+      return mimeMap[file.type];
+    }
+
+    // Fallback: treat as mp4 container (most common on mobile)
+    if (file.type && file.type.startsWith('video/')) {
+      console.warn(`[AudioProcessor] Unknown video type ${file.type}, defaulting to .mp4`);
+      return '.mp4';
+    }
+    if (file.type && file.type.startsWith('audio/')) {
+      console.warn(`[AudioProcessor] Unknown audio type ${file.type}, defaulting to .m4a`);
+      return '.m4a';
+    }
+
+    // Last resort — use original extension or .mp4
+    return ext || '.mp4';
+  }
+
+  /**
    * Process a media file
    * @param {File} file - The media file to process
    */
@@ -442,7 +527,8 @@ class AudioProcessor {
     this.currentFile = file;
     // Reset metadata for new file
     this.metadata = { duration: 0, sampleRate: 0, originalSampleRate: 0, channels: 0, bitDepth: 0, codec: '', bitrate: 0 };
-    const inputName = 'input' + this.getExtension(file.name);
+    const inputExt = this.inferExtension(file);
+    const inputName = 'input' + inputExt;
 
     try {
       // Step 1: Load file into FFmpeg (progress 25-35)
@@ -498,6 +584,15 @@ class AudioProcessor {
     } catch (error) {
       this.isProcessing = false;
       console.error('Error processing file:', error);
+
+      // Provide user-friendly error messages for common video processing failures
+      const msg = error.message || '';
+      if (msg.includes('No audio') || msg.includes('output.wav') || msg.includes('does not contain')) {
+        throw new Error('No audio track found in this file. The video may not contain audio.');
+      }
+      if (msg.includes('Out of memory') || msg.includes('OOM') || msg.includes('memory')) {
+        throw new Error('File too large for in-browser processing. Try a shorter or lower-resolution video.');
+      }
       throw error;
     }
   }
@@ -686,7 +781,17 @@ class AudioProcessor {
     ]);
 
     // Read the output file
-    const data = await this.ffmpeg.readFile(outputName);
+    let data;
+    try {
+      data = await this.ffmpeg.readFile(outputName);
+    } catch (readErr) {
+      throw new Error('Audio extraction failed. The file may not contain a compatible audio track.');
+    }
+
+    // Validate output — a WAV header is at least 44 bytes
+    if (!data || data.length < 44) {
+      throw new Error('No audio track found in this file. The video may not contain audio.');
+    }
 
     // Store extracted audio for conversion
     this.extractedAudio = data;

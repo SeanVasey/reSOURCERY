@@ -67,12 +67,41 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
 
   // Skip cross-origin requests except for CDN assets
-  if (url.origin !== location.origin && !CDN_ASSETS.some(cdn => request.url.includes(cdn))) {
+  const isCDNAsset = CDN_ASSETS.some(cdn => request.url.includes(cdn));
+  if (url.origin !== location.origin && !isCDNAsset) {
     return;
   }
 
   // For API/media requests, network only
   if (url.pathname.startsWith('/api/') || request.url.includes('blob:')) {
+    return;
+  }
+
+  // CDN assets: cache-first to avoid 503 errors on flaky mobile connections
+  if (isCDNAsset) {
+    event.respondWith(
+      caches.match(request).then(cachedResponse => {
+        if (cachedResponse) {
+          // Serve from cache immediately, refresh in background
+          fetch(request).then(response => {
+            if (response.ok) {
+              caches.open(CACHE_NAME).then(cache => cache.put(request, response));
+            }
+          }).catch(() => { /* background refresh failed, cache is still valid */ });
+          return cachedResponse;
+        }
+
+        // Not cached yet — fetch from network (let errors propagate naturally
+        // so audio-processor.js retry logic can handle them)
+        return fetch(request).then(response => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, responseClone));
+          }
+          return response;
+        });
+      })
+    );
     return;
   }
 

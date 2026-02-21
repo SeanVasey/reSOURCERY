@@ -327,6 +327,12 @@ class ReSOURCERYApp {
         return;
       }
 
+      // Validate file type — reject files that aren't audio or video
+      if (type === 'file' && source.type && !source.type.startsWith('audio/') && !source.type.startsWith('video/')) {
+        this.showToast('Unsupported file type. Please upload an audio or video file.', 'error');
+        return;
+      }
+
       // Show processing section
       this.showSection('processing');
 
