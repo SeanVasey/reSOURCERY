@@ -9,14 +9,16 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.2.0-blue.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.3.0-blue.svg" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
+  <a href="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml"><img src="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/PWA-enabled-blueviolet.svg" alt="PWA">
   <img src="https://img.shields.io/badge/iOS-primary-000000.svg?logo=apple&logoColor=white" alt="iOS">
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-fixes%20applied-brightgreen.svg" alt="Security"></a>
   <img src="https://img.shields.io/badge/design-mobile%20first-orange.svg" alt="Mobile First">
   <img src="https://img.shields.io/badge/deploy-Vercel%20ready-black.svg?logo=vercel&logoColor=white" alt="Vercel">
+  <img src="https://img.shields.io/badge/deploy-GitHub%20Pages-222.svg?logo=github&logoColor=white" alt="GitHub Pages">
   <img src="https://img.shields.io/badge/status-active-success.svg" alt="Status">
 </p>
 
@@ -86,15 +88,42 @@ curl -I http://127.0.0.1:50910/
 
 > **Note**: Requires HTTPS or localhost for full PWA + Service Worker functionality.
 
-### Vercel Deployment
+### Deployment
+
+reSOURCERY is a static site — no build step is needed. Deploy the repository root directly.
+
+#### Vercel (Recommended)
 
 The project includes `vercel.json` pre-configured with:
 - `Cross-Origin-Embedder-Policy: credentialless` — enables SharedArrayBuffer for FFmpeg.wasm
 - `Cross-Origin-Opener-Policy: same-origin` — required for cross-origin isolation
-- Cache headers for static assets
-- SPA rewrite rules
+- Cache headers for static assets (JS/CSS: 1 day + stale-while-revalidate, icons: 7 days)
+- Service worker files (`sw.js`, `coi-serviceworker.js`) set to `no-cache` for instant updates
+- SPA rewrite rules for client-side routing
 
-Deploy directly from the repository — no build step required.
+To deploy: connect the repository to Vercel and push to `main`. No framework or build command is needed.
+
+#### GitHub Pages
+
+A GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) is included for automatic deployment to GitHub Pages on pushes to `main`.
+
+To enable:
+1. Go to **Settings > Pages** in the repository
+2. Under **Source**, select **GitHub Actions**
+3. Push to `main` — the workflow will deploy automatically
+
+> **Note**: GitHub Pages does not support custom response headers. Cross-origin isolation headers (COOP/COEP) are handled at runtime by `coi-serviceworker.js`, which intercepts fetch requests and injects the required headers. FFmpeg.wasm SharedArrayBuffer support works on GitHub Pages through this service worker approach.
+
+#### Custom Static Host
+
+For any static hosting provider, ensure these response headers are set:
+| Header | Value | Purpose |
+| --- | --- | --- |
+| `Cross-Origin-Embedder-Policy` | `credentialless` | SharedArrayBuffer for FFmpeg.wasm |
+| `Cross-Origin-Opener-Policy` | `same-origin` | Cross-origin isolation |
+| `Service-Worker-Allowed` | `/` | Allow service worker scope |
+
+If custom headers cannot be configured, `coi-serviceworker.js` provides a runtime fallback.
 
 ## Architecture
 
@@ -103,7 +132,7 @@ reSOURCERY/
 ├── index.html              # Main PWA interface
 ├── manifest.json           # PWA manifest (standalone, portrait)
 ├── vercel.json             # Vercel deployment headers & config
-├── sw.js                   # Service worker (v2.2.0)
+├── sw.js                   # Service worker (v2.3.0)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
 │   └── styles.css          # Dark slate + indigo/cyan wizard theme
@@ -143,6 +172,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.3.0   | 2026-02-22 | Safe area insets for curved screens, GitHub Pages deployment, CI enhancements |
 | 2.2.0   | 2026-02-21 | Fix audio upload/URL processing, Vercel deployment, security hardening |
 | 2.1.2   | 2026-02-19 | Version config patch alignment         |
 | 2.1.1   | 2026-02-18 | FFmpeg upload/initialization reliability fixes, CI baseline checks |
@@ -173,7 +203,11 @@ test -f SECURITY.md && test -f index.html && test -f css/styles.css && \
 test -f js/app.js && test -f js/audio-processor.js && echo "All checks passed"
 ```
 
-GitHub Actions runs the same checks on pull requests and pushes to `main` (see `.github/workflows/ci.yml`).
+### CI / CD
+
+GitHub Actions runs these checks automatically:
+- **CI** (`.github/workflows/ci.yml`) — syntax checks, baseline smoke checks, and version consistency validation on all PRs and pushes to `main`
+- **Deploy** (`.github/workflows/deploy-pages.yml`) — deploys to GitHub Pages on pushes to `main`
 
 ## Technology Stack
 

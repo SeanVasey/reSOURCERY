@@ -156,6 +156,9 @@ body::before {
   min-height: 100dvh;
   background: var(--gradient-dark-vertical);
   position: relative;
+  /* Safe area side padding for curved/notched screens — background extends behind via viewport-fit=cover */
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 
 /* Ambient Background - Dark indigo-blue glow */
@@ -186,7 +189,7 @@ body::before {
 .floating-menu-btn {
   position: fixed;
   top: calc(var(--safe-top) + 16px);
-  right: 16px;
+  right: calc(var(--safe-right) + 16px);
   z-index: 200;
   width: 44px;
   height: 44px;
@@ -1597,7 +1600,7 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  width: calc(100% - var(--space-lg) * 2);
+  width: calc(100% - var(--space-lg) * 2 - var(--safe-left) - var(--safe-right));
   max-width: 400px;
   pointer-events: none;
 }
