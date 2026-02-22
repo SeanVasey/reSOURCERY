@@ -5,6 +5,21 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-02-22
+
+### Safe Area & Deployment
+
+#### Added
+- **Safe area insets for curved/notched screens**: Applied `env(safe-area-inset-left)` and `env(safe-area-inset-right)` padding to `.app-container`, adjusted `.floating-menu-btn` right position and `.toast-container` width to respect side safe areas. Background color extends naturally behind safe areas via existing `viewport-fit=cover`.
+- **GitHub Pages deployment workflow** (`.github/workflows/deploy-pages.yml`): Automatic static deployment to GitHub Pages on pushes to `main` using `actions/deploy-pages@v4`.
+- **CI version consistency check**: New CI step validates that `sw.js` fallback cache name matches `APP_VERSION.cacheKey` from `js/version.js`.
+- **CI baseline additions**: Added `manifest.json`, `js/version.js`, and `sw.js` to repository smoke checks.
+- README: Added CI status badge, GitHub Pages deployment badge, expanded deployment documentation covering Vercel, GitHub Pages, and custom static hosts with header requirements.
+
+#### Changed
+- Service worker cache bumped to `resourcery-v2.3.0`.
+- README version badge updated to 2.3.0.
+
 ## [2.2.0] - 2026-02-21
 
 ### Audio Processing & Deployment

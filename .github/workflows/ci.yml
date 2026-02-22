@@ -40,7 +40,23 @@ jobs:
           test -f .editorconfig
           test -f index.html
           test -f vercel.json
+          test -f manifest.json
           test -f css/styles.css
           test -f js/app.js
           test -f js/audio-processor.js
+          test -f js/version.js
+          test -f sw.js
           test -f docs/MANIFEST.md
+
+      - name: Version consistency check
+        run: |
+          VERSION=$(node -e "
+            const fs = require('fs');
+            const src = fs.readFileSync('js/version.js', 'utf8');
+            const m = src.match(/major:\s*(\d+)[\s\S]*?minor:\s*(\d+)[\s\S]*?patch:\s*(\d+)/);
+            console.log('resourcery-v' + m[1] + '.' + m[2] + '.' + m[3]);
+          ")
+          FALLBACK=$(grep -oP "resourcery-v[\d.]+" sw.js | head -1)
+          echo "version.js cacheKey: $VERSION"
+          echo "sw.js fallback: $FALLBACK"
+          test "$VERSION" = "$FALLBACK" || { echo "ERROR: sw.js fallback cache name does not match version.js cacheKey"; exit 1; }
