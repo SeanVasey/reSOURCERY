@@ -278,6 +278,11 @@ class AudioProcessor {
       this.updateStage('Loading FFmpeg...');
       this.updateProgress(5);
 
+      // Check cross-origin isolation (required for SharedArrayBuffer / FFmpeg.wasm)
+      if (typeof window !== 'undefined' && !window.crossOriginIsolated) {
+        console.warn('[AudioProcessor] crossOriginIsolated is false — SharedArrayBuffer may be unavailable. FFmpeg.wasm may fail.');
+      }
+
       // Check for early CDN load failures detected by script onerror handlers
       if (window.FFmpegLoadErrors?.length > 0) {
         throw new Error('FFmpeg CDN scripts failed to load. Please check your internet connection and try again.');
@@ -340,18 +345,38 @@ class AudioProcessor {
 
       // Download core JS (small file, ~100KB) - progress 10-12%
       this.updateStage('Downloading audio engine...');
-      const coreJSData = await this.fetchWithProgress(coreURL, (progress) => {
-        this.updateProgress(10 + Math.round(progress * 2));
-      });
+      let coreJSData;
+      try {
+        coreJSData = await this.withTimeout(
+          this.fetchWithProgress(coreURL, (progress) => {
+            this.updateProgress(10 + Math.round(progress * 2));
+          }),
+          30000,
+          'Audio engine script download timed out. Please check your connection and try again.'
+        );
+      } catch (err) {
+        console.error('[AudioProcessor] Core JS download failed:', err);
+        throw err;
+      }
       const coreJSBlob = new Blob([coreJSData], { type: 'text/javascript' });
       const coreJSBlobURL = URL.createObjectURL(coreJSBlob);
       objectURLs.push(coreJSBlobURL);
 
       // Download WASM binary (large file, ~25MB) - progress 12-23%
-      this.updateStage('Loading audio processing core...');
-      const wasmData = await this.fetchWithProgress(wasmURL, (progress) => {
-        this.updateProgress(12 + Math.round(progress * 11));
-      });
+      this.updateStage('Downloading processing core (~25 MB)...');
+      let wasmData;
+      try {
+        wasmData = await this.withTimeout(
+          this.fetchWithProgress(wasmURL, (progress) => {
+            this.updateProgress(12 + Math.round(progress * 11));
+          }),
+          60000,
+          'Audio engine core download timed out. The file is large (~25 MB) — please check your connection and try again.'
+        );
+      } catch (err) {
+        console.error('[AudioProcessor] WASM binary download failed:', err);
+        throw err;
+      }
       const wasmBlob = new Blob([wasmData], { type: 'application/wasm' });
       const wasmBlobURL = URL.createObjectURL(wasmBlob);
       objectURLs.push(wasmBlobURL);
@@ -360,29 +385,77 @@ class AudioProcessor {
       // Without this, the loader can stall around ~20-30% while trying to fetch
       // ffmpeg-core.worker.js relative to a blob: URL.
       this.updateStage('Preparing audio worker...');
-      const workerData = await this.fetchWithProgress(workerURL, (progress) => {
-        this.updateProgress(23 + Math.round(progress * 2));
-      });
+      let workerData;
+      try {
+        workerData = await this.withTimeout(
+          this.fetchWithProgress(workerURL, (progress) => {
+            this.updateProgress(23 + Math.round(progress * 2));
+          }),
+          30000,
+          'Audio worker download timed out. Please check your connection and try again.'
+        );
+      } catch (err) {
+        console.error('[AudioProcessor] Worker script download failed:', err);
+        throw err;
+      }
       const workerBlob = new Blob([workerData], { type: 'text/javascript' });
       const workerBlobURL = URL.createObjectURL(workerBlob);
       objectURLs.push(workerBlobURL);
 
-      // Load FFmpeg core with pre-downloaded blob URLs (instant since data is in memory)
-      this.updateStage('Initializing audio engine...');
+      // Load FFmpeg core with pre-downloaded blob URLs
+      // Retry with exponential backoff (max 3 attempts) for transient failures
+      this.updateStage('Starting audio engine...');
       this.updateProgress(25);
 
-      try {
-        await this.withTimeout(
-          this.ffmpeg.load({
-            coreURL: coreJSBlobURL,
-            wasmURL: wasmBlobURL,
-            workerURL: workerBlobURL,
-          }),
-          45000,
-          'Audio engine load timed out. Please refresh and retry.'
-        );
-      } finally {
-        objectURLs.forEach((url) => URL.revokeObjectURL(url));
+      const maxLoadAttempts = 3;
+      let lastLoadError = null;
+
+      for (let loadAttempt = 1; loadAttempt <= maxLoadAttempts; loadAttempt++) {
+        try {
+          await this.withTimeout(
+            this.ffmpeg.load({
+              coreURL: coreJSBlobURL,
+              wasmURL: wasmBlobURL,
+              workerURL: workerBlobURL,
+            }),
+            45000,
+            'Audio engine initialization timed out. Please refresh and retry.'
+          );
+          lastLoadError = null;
+          break; // Success
+        } catch (loadError) {
+          lastLoadError = loadError;
+          console.error(`[AudioProcessor] FFmpeg load attempt ${loadAttempt}/${maxLoadAttempts} failed:`, loadError);
+
+          if (loadAttempt < maxLoadAttempts) {
+            const delay = Math.pow(2, loadAttempt) * 1000; // 2s, 4s
+            this.updateStage(`Retrying audio engine (attempt ${loadAttempt + 1}/${maxLoadAttempts})...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Re-create FFmpeg instance for clean retry
+            const FFmpegCtor = window.FFmpegWASM.FFmpeg;
+            this.ffmpeg = new FFmpegCtor();
+
+            this.ffmpeg.on('progress', ({ progress }) => {
+              if (this.onProgress) {
+                const mappedProgress = 40 + Math.round(progress * 30);
+                this.onProgress(Math.min(mappedProgress, 70));
+              }
+            });
+
+            this.ffmpeg.on('log', ({ message }) => {
+              console.log('[FFmpeg]', message);
+              this.parseFFmpegLog(message);
+            });
+          }
+        }
+      }
+
+      // Clean up blob URLs regardless of outcome
+      objectURLs.forEach((url) => URL.revokeObjectURL(url));
+
+      if (lastLoadError) {
+        throw lastLoadError;
       }
 
       this.isLoaded = true;
@@ -395,6 +468,7 @@ class AudioProcessor {
       console.error('[AudioProcessor] Failed to load FFmpeg:', error);
       console.error('[AudioProcessor] FFmpeg bootstrap context:', {
         config: this.ffmpegCoreConfig,
+        crossOriginIsolated: typeof window !== 'undefined' ? window.crossOriginIsolated : 'N/A',
         isOnline: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
       });
 
@@ -538,9 +612,14 @@ class AudioProcessor {
       const fileData = await this.readLocalFileWithProgress(file, (progress) => {
         this.updateProgress(25 + Math.round(progress * 8));
       });
-      this.updateStage('Preparing media for extraction...');
+      this.updateStage('Writing file to audio engine...');
       this.updateProgress(33);
-      await this.ffmpeg.writeFile(inputName, fileData);
+      try {
+        await this.ffmpeg.writeFile(inputName, fileData);
+      } catch (writeErr) {
+        console.error('[AudioProcessor] writeFile failed:', writeErr);
+        throw new Error('Failed to load file into audio engine. The file may be too large for available memory.');
+      }
 
       this.updateProgress(35);
 
@@ -664,8 +743,13 @@ class AudioProcessor {
       // Continue processing from the file-write stage (skip re-reading the file)
       const inputName = 'input' + this.getExtension(fileName);
 
-      this.updateStage('Preparing media for extraction...');
-      await this.ffmpeg.writeFile(inputName, fileData);
+      this.updateStage('Writing media to audio engine...');
+      try {
+        await this.ffmpeg.writeFile(inputName, fileData);
+      } catch (writeErr) {
+        console.error('[AudioProcessor] writeFile failed for URL media:', writeErr);
+        throw new Error('Failed to load media into audio engine. The file may be too large for available memory.');
+      }
       this.updateProgress(37);
 
       // Step 2: Probe the file for audio streams (progress 37-40)
@@ -771,14 +855,19 @@ class AudioProcessor {
     console.log(`[AudioProcessor] Sample rate: ${this.metadata.originalSampleRate}Hz -> ${targetSampleRate}Hz (preserve: ${this.settings.preserveSampleRate})`);
 
     // Extract audio with proper settings
-    await this.ffmpeg.exec([
-      '-i', inputName,
-      '-vn',                          // No video
-      '-acodec', 'pcm_s24le',        // 24-bit PCM
-      '-ar', targetSampleRate.toString(),
-      '-ac', '2',                     // Stereo
-      outputName
-    ]);
+    try {
+      await this.ffmpeg.exec([
+        '-i', inputName,
+        '-vn',                          // No video
+        '-acodec', 'pcm_s24le',        // 24-bit PCM
+        '-ar', targetSampleRate.toString(),
+        '-ac', '2',                     // Stereo
+        outputName
+      ]);
+    } catch (execErr) {
+      console.error('[AudioProcessor] FFmpeg exec failed:', execErr);
+      throw new Error('Audio extraction failed. The file format may not be supported.');
+    }
 
     // Read the output file
     let data;
@@ -878,7 +967,12 @@ class AudioProcessor {
     );
 
     // Decode audio
-    this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+    try {
+      this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+    } catch (decodeErr) {
+      console.error('[AudioProcessor] decodeAudioData failed:', decodeErr);
+      throw new Error('Failed to decode extracted audio. The audio data may be corrupted.');
+    }
     this.metadata.duration = this.audioBuffer.duration;
 
     return this.audioBuffer;

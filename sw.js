@@ -1,4 +1,9 @@
-const CACHE_NAME = 'resourcery-v2.2.0';
+// Derive cache name from centralized version config (js/version.js)
+// so deploys automatically invalidate stale caches including wasm assets.
+try { importScripts('./js/version.js'); } catch (e) { /* version.js unavailable */ }
+const CACHE_NAME = (typeof APP_VERSION !== 'undefined' && APP_VERSION.cacheKey)
+  ? APP_VERSION.cacheKey
+  : 'resourcery-v2.2.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
