@@ -20,5 +20,9 @@
 - `README.md`: Product overview, usage, and development instructions.
 - `CHANGELOG.md`: Versioned release notes.
 - `SECURITY.md`: Vulnerability disclosure process.
-- `CLAUDE.md`: Project context and directives for Claude Code sessions.
+- `CLAUDE.md`: Project context, workflow standards, and directives for Claude Code sessions.
 - `LICENSE`: Project license.
+
+## Task Tracking
+- `tasks/todo.md`: Active task plan with checkable items, updated per session.
+- `tasks/lessons.md`: Accumulated patterns from corrections and mistakes.
