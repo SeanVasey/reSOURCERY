@@ -82,10 +82,24 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // CDN assets: cache-first to avoid 503 errors on flaky mobile connections
+  // CDN assets: cache-first to avoid 503 errors on flaky mobile connections.
+  // WASM binaries get an extra size check — a partial/corrupt cached copy would
+  // cause ffmpeg.load() to hang indefinitely during WASM compilation.
   if (isCDNAsset) {
+    const isWasm = request.url.endsWith('.wasm');
+    const WASM_MIN_BYTES = 1024 * 1024; // 1 MB sanity floor (~25 MB expected)
+
     event.respondWith(
       caches.match(request).then(cachedResponse => {
+        // For WASM: reject suspiciously small cached responses (likely corrupt)
+        if (cachedResponse && isWasm) {
+          const cl = cachedResponse.headers.get('content-length');
+          if (cl && parseInt(cl, 10) < WASM_MIN_BYTES) {
+            console.warn('[SW] Cached WASM response too small (' + cl + ' bytes), fetching fresh copy');
+            cachedResponse = null; // fall through to network
+          }
+        }
+
         if (cachedResponse) {
           // Serve from cache immediately, refresh in background
           fetch(request).then(response => {
