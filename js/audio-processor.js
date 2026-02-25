@@ -62,6 +62,10 @@ class AudioProcessor {
     // Guard against concurrent processing
     this.isProcessing = false;
 
+    // Blob URL for FFmpeg worker — kept alive until destroy() because the
+    // internal Web Worker may reference it after ffmpeg.load() resolves.
+    this._workerBlobURL = null;
+
     // Initialize worker
     this.initWorker();
   }
@@ -371,7 +375,6 @@ class AudioProcessor {
       // Pre-fetching with ReadableStream allows us to report download progress
       // instead of hanging at a fixed percentage during ffmpeg.load()
       const { coreURL, wasmURL, workerURL } = this.ffmpegCoreConfig;
-      const objectURLs = [];
 
       // Download core JS (small file, ~100KB) - progress 10-12%
       this.updateStage('Downloading audio engine...');
@@ -390,7 +393,6 @@ class AudioProcessor {
       }
       const coreJSBlob = new Blob([coreJSData], { type: 'text/javascript' });
       const coreJSBlobURL = URL.createObjectURL(coreJSBlob);
-      objectURLs.push(coreJSBlobURL);
 
       // Download WASM binary (large file, ~25MB) - progress 12-23%
       this.updateStage('Downloading processing core (~25 MB)...');
@@ -407,9 +409,19 @@ class AudioProcessor {
         console.error('[AudioProcessor] WASM binary download failed:', err);
         throw err;
       }
+
+      // Validate WASM binary — the file is ~25 MB; a partial/corrupt download
+      // from a stale service worker cache would be much smaller and would cause
+      // ffmpeg.load() to hang indefinitely while trying to compile garbage.
+      const WASM_MIN_SIZE = 1024 * 1024; // 1 MB sanity floor
+      if (!wasmData || wasmData.length < WASM_MIN_SIZE) {
+        console.error(`[AudioProcessor] WASM binary too small (${wasmData?.length ?? 0} bytes). Expected ≥25 MB.`);
+        throw new Error('Audio engine download appears incomplete. Please clear your browser cache and try again.');
+      }
+      console.log(`[AudioProcessor] WASM binary downloaded: ${(wasmData.length / 1024 / 1024).toFixed(1)} MB`);
+
       const wasmBlob = new Blob([wasmData], { type: 'application/wasm' });
       const wasmBlobURL = URL.createObjectURL(wasmBlob);
-      objectURLs.push(wasmBlobURL);
 
       // Download worker script so ffmpeg.load can resolve worker from blob URLs.
       // Without this, the loader can stall around ~20-30% while trying to fetch
@@ -430,7 +442,6 @@ class AudioProcessor {
       }
       const workerBlob = new Blob([workerData], { type: 'text/javascript' });
       const workerBlobURL = URL.createObjectURL(workerBlob);
-      objectURLs.push(workerBlobURL);
 
       // Load FFmpeg core with pre-downloaded blob URLs
       // Retry with exponential backoff (max 3 attempts) for transient failures
@@ -442,6 +453,8 @@ class AudioProcessor {
 
       for (let loadAttempt = 1; loadAttempt <= maxLoadAttempts; loadAttempt++) {
         try {
+          console.log(`[AudioProcessor] ffmpeg.load() attempt ${loadAttempt}/${maxLoadAttempts} starting...`);
+          const loadStart = performance.now();
           await this.withTimeout(
             this.ffmpeg.load({
               coreURL: coreJSBlobURL,
@@ -451,6 +464,7 @@ class AudioProcessor {
             45000,
             'Audio engine initialization timed out. Please refresh and retry.'
           );
+          console.log(`[AudioProcessor] ffmpeg.load() succeeded in ${((performance.now() - loadStart) / 1000).toFixed(1)}s`);
           lastLoadError = null;
           break; // Success
         } catch (loadError) {
@@ -481,10 +495,18 @@ class AudioProcessor {
         }
       }
 
-      // Clean up blob URLs regardless of outcome
-      objectURLs.forEach((url) => URL.revokeObjectURL(url));
+      // Revoke core JS and WASM blob URLs — they are no longer needed after
+      // ffmpeg.load() compiles the WASM module.  Keep the worker blob URL alive
+      // because FFmpeg's internal Web Worker may still reference it; it gets
+      // revoked in destroy() instead.
+      URL.revokeObjectURL(coreJSBlobURL);
+      URL.revokeObjectURL(wasmBlobURL);
+      this._workerBlobURL = workerBlobURL;
 
       if (lastLoadError) {
+        // Worker URL is also useless on failure — clean it up now
+        URL.revokeObjectURL(workerBlobURL);
+        this._workerBlobURL = null;
         throw lastLoadError;
       }
 
@@ -1198,6 +1220,12 @@ class AudioProcessor {
       this.analysisWorker.terminate();
       this.analysisWorker = null;
       this.pendingWorkerCalls.clear();
+    }
+
+    // Revoke the deferred worker blob URL now that FFmpeg is being torn down
+    if (this._workerBlobURL) {
+      URL.revokeObjectURL(this._workerBlobURL);
+      this._workerBlobURL = null;
     }
 
     if (this.audioContext) {
