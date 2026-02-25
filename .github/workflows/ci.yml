@@ -29,6 +29,7 @@ jobs:
           node --check js/audio-processor.js
           node --check js/app.js
           node --check sw.js
+          node --check api/fetch.js
 
       - name: Repository baseline smoke checks
         run: |
@@ -46,6 +47,7 @@ jobs:
           test -f js/audio-processor.js
           test -f js/version.js
           test -f sw.js
+          test -f api/fetch.js
           test -f docs/MANIFEST.md
 
       - name: Version consistency check

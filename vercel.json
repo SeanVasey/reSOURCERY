@@ -69,7 +69,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!js|css|icons|.*\\..*).*)",
+      "source": "/((?!api|js|css|icons|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

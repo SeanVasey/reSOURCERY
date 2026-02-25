@@ -67,3 +67,23 @@ python3 server.py
 - Adds Cross-Origin headers for SharedArrayBuffer support (required by FFmpeg.wasm)
 - Simple, lightweight, ideal for local development
 - Graceful shutdown with Ctrl+C
+
+
+### Proxy Endpoint Test (URL Fallback)
+```bash
+curl -I "http://127.0.0.1:50910/api/fetch?url=https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+```
+
+**Expected Response:**
+- `HTTP/1.0 200 OK`
+- `Access-Control-Allow-Origin: *`
+- `Content-Type` from upstream resource
+
+### Proxy Security Guardrail Test
+```bash
+curl "http://127.0.0.1:50910/api/fetch?url=http://127.0.0.1:50910/"
+```
+
+**Expected Response:**
+- JSON payload with `Private network addresses are not allowed`
+- HTTP status `403`

@@ -46,3 +46,5 @@ This application follows these security practices:
 - **No persistent storage of media**: Processed audio is held in memory only
 - **Content Security Policy ready**: Application can be served with strict CSP headers
 - **HTTPS required**: PWA manifest requires secure context for installation
+
+- **URL proxy hardening**: `/api/fetch` blocks localhost/private-network targets to reduce SSRF risk, enforces HTTP(S), and caps remote file size at 2 GB.
