@@ -24,14 +24,14 @@
 
 ---
 
-reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from multimedia sources. It runs entirely in the browser using WebAssembly-based audio processing — no server, no uploads, fully offline-capable.
+reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from multimedia sources. It runs primarily in the browser using WebAssembly-based audio processing, with an optional hardened URL proxy endpoint for hosts that block direct browser fetches.
 
 ## Features
 
 ### Audio Extraction
 - Extract audio from video files (MP4, MOV, AVI, MKV, WEBM)
 - Process audio files (MP3, WAV, M4A, FLAC, etc.)
-- Fetch media directly from URLs with progress tracking
+- Fetch media directly from URLs with progress tracking and secure proxy fallback for CORS-restricted hosts
 - Drag & drop or click-to-browse file selection
 
 ### Export Formats (Highest Quality Only)
@@ -79,7 +79,7 @@ npx serve .
 python -m http.server 8080
 ```
 
-The included `server.py` serves the application on **port 50910** with proper CORS headers for cross-origin isolation.
+The included `server.py` serves the application on **port 50910** with proper CORS headers for cross-origin isolation and a local `/api/fetch` endpoint that mirrors Vercel proxy behavior for URL testing.
 
 **Test the server:**
 ```bash
@@ -90,7 +90,7 @@ curl -I http://127.0.0.1:50910/
 
 ### Deployment
 
-reSOURCERY is a static site — no build step is needed. Deploy the repository root directly.
+reSOURCERY is a static-first web app with a lightweight optional serverless API route (`/api/fetch`) for URL proxy fallback. No build step is needed.
 
 #### Vercel (Recommended)
 
@@ -99,7 +99,7 @@ The project includes `vercel.json` pre-configured with:
 - `Cross-Origin-Opener-Policy: same-origin` — required for cross-origin isolation
 - Cache headers for static assets (JS/CSS: 1 day + stale-while-revalidate, icons: 7 days)
 - Service worker files (`sw.js`, `coi-serviceworker.js`) set to `no-cache` for instant updates
-- SPA rewrite rules for client-side routing
+- SPA rewrite rules for client-side routing (excluding `/api/*` functions)
 
 To deploy: connect the repository to Vercel and push to `main`. No framework or build command is needed.
 
@@ -131,7 +131,9 @@ If custom headers cannot be configured, `coi-serviceworker.js` provides a runtim
 reSOURCERY/
 ├── index.html              # Main PWA interface
 ├── manifest.json           # PWA manifest (standalone, portrait)
-├── vercel.json             # Vercel deployment headers & config
+├── vercel.json             # Vercel deployment headers, rewrites, and API support
+├── api/
+│   └── fetch.js            # Hardened URL proxy endpoint for CORS fallback
 ├── sw.js                   # Service worker (v2.3.0)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
@@ -161,7 +163,7 @@ See [SECURITY.md](SECURITY.md) for:
 
 ### Privacy
 - All processing runs client-side in the browser
-- No data is transmitted to external servers
+- Uploaded files are processed locally in-browser; URL sources may be fetched through your deployment proxy when direct CORS access is blocked
 - No persistent storage of media files
 - CSP-ready architecture
 - URL validation (HTTP/HTTPS only, protocol enforcement)

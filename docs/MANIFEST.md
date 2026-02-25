@@ -14,7 +14,9 @@
 - `coi-serviceworker.js`: Cross-origin isolation support.
 
 ## Deployment
-- `vercel.json`: Vercel deployment headers (COOP/COEP), cache config, and SPA rewrites.
+- `vercel.json`: Vercel deployment headers (COOP/COEP), cache config, API-aware rewrites.
+- `api/fetch.js`: Hardened URL proxy for CORS-restricted media hosts (Vercel serverless function).
+- `server.py`: Local static host with matching `/api/fetch` proxy behavior for development testing.
 
 ## Documentation and Governance
 - `README.md`: Product overview, usage, and development instructions.

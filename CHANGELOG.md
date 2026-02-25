@@ -5,6 +5,16 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- URL processing now retries through a hardened `/api/fetch` proxy when direct browser fetch is blocked by CORS/network policies, reducing fetch failures for remote media sources.
+- Vercel SPA rewrite now excludes `/api/*` paths so serverless functions are reachable in production.
+- Local development server now supports `/api/fetch` to match production URL-processing behavior during tests.
+
+### Security
+- Added SSRF guardrails for proxy usage: blocks localhost/private-network targets, enforces HTTP(S)-only URLs, and caps proxied response size at 2 GB.
+
 ## [2.3.0] - 2026-02-22
 
 ### Safe Area & Deployment

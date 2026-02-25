@@ -20,6 +20,8 @@ class AudioProcessor {
       workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js'
     };
 
+    this.proxyEndpoint = '/api/fetch';
+
     this.ffmpeg = null;
     this.isLoaded = false;
     this.audioContext = null;
@@ -219,6 +221,34 @@ class AudioProcessor {
     }
 
     return data;
+  }
+
+
+  /**
+   * Fetch remote media and gracefully fall back to the server-side proxy when direct fetch is blocked.
+   * @param {string} url
+   * @param {Function} onProgress
+   * @returns {Promise<Uint8Array>}
+   */
+  async fetchURLWithFallback(url, onProgress) {
+    try {
+      return await this.fetchWithProgress(url, onProgress);
+    } catch (directError) {
+      const message = directError?.message || '';
+      const shouldTryProxy =
+        message.includes('Failed to fetch') ||
+        message.includes('Network request failed') ||
+        message.includes('CORS') ||
+        message.includes('HTTP 4');
+
+      if (!shouldTryProxy) {
+        throw directError;
+      }
+
+      this.updateStage('Direct fetch blocked, retrying via secure proxy...');
+      const proxyURL = `${this.proxyEndpoint}?url=${encodeURIComponent(url)}`;
+      return this.fetchWithProgress(proxyURL, onProgress, 1);
+    }
   }
 
   /**
@@ -712,7 +742,7 @@ class AudioProcessor {
       this.updateProgress(25);
 
       // Fetch the URL content with progress tracking and timeout
-      const fetchPromise = this.fetchWithProgress(url, (progress) => {
+      const fetchPromise = this.fetchURLWithFallback(url, (progress) => {
         // Map fetch progress to 25-35% range
         this.updateProgress(25 + Math.round(progress * 10));
       });
@@ -794,10 +824,16 @@ class AudioProcessor {
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
         throw new Error('Could not fetch URL. The server may block cross-origin requests (CORS).');
       }
+      if (msg.includes('HTTP 413') || msg.includes('2 GB')) {
+        throw new Error('The remote file is larger than the 2 GB limit.');
+      }
+      if (msg.includes('HTTP 403') || msg.includes('Private network addresses')) {
+        throw new Error('This URL is blocked by security policy. Please use a public media URL.');
+      }
       if (msg.includes('timed out')) {
         throw error;
       }
-      throw new Error('Failed to process URL: ' + this.truncateError(msg));
+      throw new Error('Failed to process URL. Please verify the link is public and points to a media file.');
     }
   }
 

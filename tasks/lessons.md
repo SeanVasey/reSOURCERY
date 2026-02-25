@@ -4,18 +4,19 @@ Accumulated patterns from corrections and mistakes. Review at session start.
 
 ## Patterns
 
-### Version Consistency
-- Always verify `sw.js` fallback cache name matches `APP_VERSION.cacheKey` in `js/version.js` before committing.
-- The CI pipeline enforces this check — never skip it locally.
+### URL Ingestion Reliability
+- Browser-only URL fetch is not sufficient for many hosts because of CORS; provide a controlled proxy fallback to prevent user-facing dead-ends.
+- Keep progress updates active during fallback transitions so the UI does not appear frozen around 20–30%.
 
-### Service Worker Cache
-- When updating cached assets in `sw.js`, verify every file path in `STATIC_ASSETS` actually exists in the repo.
-- CDN URLs in `CDN_ASSETS` must match versions referenced in `index.html`.
+### Proxy Security
+- Any URL proxy must block localhost/private addresses to reduce SSRF exposure.
+- Enforce protocol allowlist (`http`/`https`) and response-size caps before forwarding data into processing pipelines.
 
-### Cross-Origin Isolation
-- `coi-serviceworker.js` and `sw.js` both intercept fetch events — changes to one may affect the other.
-- Vercel uses `credentialless` (not `require-corp`) for COEP to allow CDN fetches.
+### Deployment Routing
+- SPA rewrite rules can accidentally shadow serverless API routes; always exclude `/api/*` when rewrites route to `index.html`.
+
+### Development Parity
+- If production uses a serverless route, local development should offer the same path contract to avoid environment-only regressions.
 
 ### Documentation Sync
-- When changing features or files, update README.md, CHANGELOG.md, and docs/MANIFEST.md in the same commit.
-- SECURITY.md supported versions table must be updated when new minor/major versions ship.
+- For runtime behavior changes, update README + CHANGELOG + SECURITY + TESTING + manifest docs in the same patch.
