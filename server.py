@@ -3,6 +3,7 @@
 Simple HTTP server for reSOURCERY PWA
 Serves the application on port 50910 and provides /api/fetch proxy for local testing.
 """
+import http.client
 import http.server
 import ipaddress
 import json
@@ -10,15 +11,16 @@ import os
 import shutil
 import socket
 import socketserver
+import ssl
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
 
 PORT = 50910
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 MAX_CONTENT_LENGTH = 2 * 1024 * 1024 * 1024
 MAX_REDIRECTS = 5
+CONNECT_TIMEOUT = 30   # seconds
+STREAM_IDLE_TIMEOUT = 60  # seconds per-read idle timeout
 
 
 def is_private_ip(addr_str: str) -> bool:
@@ -30,35 +32,99 @@ def is_private_ip(addr_str: str) -> bool:
         return True  # Unparseable — block by default
 
 
-def is_private_host(hostname: str) -> bool:
-    """Block private/localhost targets for SSRF safety, including DNS resolution."""
+def validate_and_resolve(hostname: str):
+    """Validate hostname against SSRF protections and resolve to a pinned IP.
+
+    Returns (resolved_ip: str | None, error_message: str | None).
+    If resolved_ip is None, error_message explains the rejection.
+    """
     if not hostname:
-        return True
+        return None, 'Missing hostname'
 
     normalized = hostname.strip('[]').lower()
     if normalized in {'localhost', '::1'}:
-        return True
+        return None, 'Private network addresses are not allowed'
 
-    # Check if it's a literal IP address
+    # Literal IP address
     try:
         ip = ipaddress.ip_address(normalized)
-        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved:
+            return None, 'Private network addresses are not allowed'
+        return normalized, None
     except ValueError:
         pass
 
-    # It's a hostname — resolve via DNS and check all resulting IPs
+    # Hostname — resolve via DNS and check all resulting IPs
     try:
         addrinfo = socket.getaddrinfo(normalized, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         if not addrinfo:
-            return True  # Cannot resolve — block
+            return None, f'Could not resolve hostname: {hostname}'
 
-        for family, _type, _proto, _canonname, sockaddr in addrinfo:
+        first_public = None
+        for _family, _type, _proto, _canonname, sockaddr in addrinfo:
             resolved_ip = sockaddr[0]
             if is_private_ip(resolved_ip):
-                return True
-        return False
+                return None, 'Private network addresses are not allowed'
+            if first_public is None:
+                first_public = resolved_ip
+
+        return first_public, None
     except (socket.gaierror, socket.herror, OSError):
-        return True  # DNS failure — block by default
+        return None, f'Could not resolve hostname: {hostname}'
+
+
+class PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection pinned to a resolved IP with TLS verified against the original hostname."""
+
+    def __init__(self, resolved_ip, port, original_hostname, timeout=CONNECT_TIMEOUT):
+        context = ssl.create_default_context()
+        super().__init__(resolved_ip, port, timeout=timeout, context=context)
+        self._original_hostname = original_hostname
+
+    def connect(self):
+        """Connect to the resolved IP, then do TLS with SNI for the original hostname."""
+        http.client.HTTPConnection.connect(self)
+        self.sock = self._context.wrap_socket(
+            self.sock,
+            server_hostname=self._original_hostname
+        )
+
+
+def pinned_open(url_string, resolved_ip, timeout=CONNECT_TIMEOUT):
+    """Open a URL with DNS pinning to prevent DNS rebinding.
+
+    Returns (connection, response) where response is an http.client.HTTPResponse.
+    """
+    parsed = urllib.parse.urlparse(url_string)
+    is_https = parsed.scheme == 'https'
+    port = parsed.port or (443 if is_https else 80)
+    hostname = parsed.hostname
+
+    path = parsed.path or '/'
+    if parsed.query:
+        path += '?' + parsed.query
+
+    if is_https:
+        conn = PinnedHTTPSConnection(resolved_ip, port, hostname, timeout=timeout)
+    else:
+        conn = http.client.HTTPConnection(resolved_ip, port, timeout=timeout)
+
+    netloc = parsed.hostname
+    if parsed.port:
+        netloc += f':{parsed.port}'
+
+    conn.request('GET', path, headers={
+        'User-Agent': f'reSOURCERY-local/2.4 (+http://127.0.0.1:{PORT})',
+        'Host': netloc
+    })
+
+    response = conn.getresponse()
+
+    # Set longer timeout for the streaming phase
+    if conn.sock:
+        conn.sock.settimeout(STREAM_IDLE_TIMEOUT)
+
+    return conn, response
 
 
 class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -77,6 +143,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Cache-Control', 'no-store, max-age=0')
         self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Content-Security-Policy', "default-src 'none'")
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -90,22 +157,24 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def _validate_url(self, url_string):
         """Parse and validate a URL against SSRF protections.
-        Returns the parsed URL on success or None (and sends error response) on failure."""
+        Returns (parsed_url, resolved_ip) on success, or (None, None) on failure."""
         try:
             target = urllib.parse.urlparse(url_string)
         except ValueError:
             self.send_json(400, {'error': 'Invalid URL format'})
-            return None
+            return None, None
 
         if target.scheme not in {'http', 'https'}:
             self.send_json(400, {'error': 'Only HTTP(S) URLs are supported'})
-            return None
+            return None, None
 
-        if is_private_host(target.hostname or ''):
-            self.send_json(403, {'error': 'Private network addresses are not allowed'})
-            return None
+        resolved_ip, error = validate_and_resolve(target.hostname or '')
+        if error:
+            status = 403 if 'private' in error.lower() else 400
+            self.send_json(status, {'error': error})
+            return None, None
 
-        return target
+        return target, resolved_ip
 
     def handle_fetch_proxy(self, parsed):
         params = urllib.parse.parse_qs(parsed.query)
@@ -115,7 +184,7 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(400, {'error': 'Missing url query parameter'})
             return
 
-        target = self._validate_url(media_url)
+        target, resolved_ip = self._validate_url(media_url)
         if target is None:
             return
 
@@ -123,20 +192,17 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         # Follow redirects manually, re-validating each hop against SSRF
         for _hop in range(MAX_REDIRECTS):
-            req = urllib.request.Request(
-                current_url,
-                headers={'User-Agent': 'reSOURCERY-local/2.3 (+http://127.0.0.1:50910)'},
-                method='GET'
-            )
+            try:
+                conn, upstream = pinned_open(current_url, resolved_ip, timeout=CONNECT_TIMEOUT)
+            except (OSError, http.client.HTTPException) as error:
+                self.send_json(502, {'error': f'Proxy request failed: {error}'})
+                return
 
             try:
-                # Disable automatic redirect following
-                opener = urllib.request.build_opener(NoRedirectHandler())
-                upstream = opener.open(req, timeout=45)
-                status = upstream.getcode()
+                status = upstream.status
 
                 if 300 <= status < 400:
-                    location = upstream.headers.get('Location')
+                    location = upstream.getheader('Location')
                     if not location:
                         self.send_json(502, {'error': 'Redirect without Location header'})
                         return
@@ -145,25 +211,30 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     redirect_url = urllib.parse.urljoin(current_url, location)
 
                     # Re-validate the redirect target
-                    redirect_target = self._validate_url(redirect_url)
+                    redirect_target, redirect_resolved_ip = self._validate_url(redirect_url)
                     if redirect_target is None:
                         return
 
                     current_url = redirect_url
+                    resolved_ip = redirect_resolved_ip
                     upstream.close()
+                    conn.close()
                     continue
 
                 if status < 200 or status > 299:
                     self.send_json(status, {'error': f'Upstream request failed: HTTP {status}'})
+                    upstream.close()
+                    conn.close()
                     return
 
-                content_type = upstream.headers.get('Content-Type')
-                content_length = upstream.headers.get('Content-Length')
+                content_type = upstream.getheader('Content-Type')
+                content_length = upstream.getheader('Content-Length')
                 if content_length:
                     try:
                         if int(content_length) > MAX_CONTENT_LENGTH:
                             self.send_json(413, {'error': 'Remote file exceeds 2 GB limit'})
                             upstream.close()
+                            conn.close()
                             return
                     except ValueError:
                         pass
@@ -172,40 +243,29 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Cache-Control', 'no-store, max-age=0')
                 self.send_header('X-Content-Type-Options', 'nosniff')
                 self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Content-Security-Policy', "default-src 'none'")
                 if content_type:
                     self.send_header('Content-Type', content_type)
                 if content_length:
                     self.send_header('Content-Length', content_length)
                 self.end_headers()
 
-                # Stream the response in chunks instead of buffering entirely
-                shutil.copyfileobj(upstream, self.wfile)
-                upstream.close()
+                # Stream the response in chunks
+                try:
+                    shutil.copyfileobj(upstream, self.wfile)
+                except (socket.timeout, BrokenPipeError, ConnectionResetError):
+                    pass  # Stream interrupted — client disconnected or idle timeout
+                finally:
+                    upstream.close()
+                    conn.close()
                 return
 
-            except urllib.error.HTTPError as error:
-                self.send_json(error.code, {'error': f'Upstream request failed: HTTP {error.code}'})
-                return
-            except urllib.error.URLError as error:
-                self.send_json(502, {'error': f'Proxy request failed: {error.reason}'})
-                return
+            except Exception:
+                upstream.close()
+                conn.close()
+                raise
 
         self.send_json(502, {'error': 'Too many redirects'})
-
-
-class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Prevent urllib from automatically following redirects."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-    def http_error_302(self, req, fp, code, msg, headers):
-        return fp
-
-    http_error_301 = http_error_302
-    http_error_303 = http_error_302
-    http_error_307 = http_error_302
-    http_error_308 = http_error_302
 
 
 def main():

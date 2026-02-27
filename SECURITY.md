@@ -4,13 +4,32 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.3.x   | :white_check_mark: |
-| 2.2.x   | :white_check_mark: |
+| 2.4.x   | :white_check_mark: |
+| 2.3.x   | :x:                |
+| 2.2.x   | :x:                |
 | 2.1.x   | :x:                |
 | 2.0.x   | :x:                |
 | 1.x.x   | :x:                |
 
 ## Security Fixes
+
+### Version 2.4.0 (2026-02-27)
+
+#### DNS Rebinding Mitigation (#24, #25)
+- **Issue**: SSRF protections validated hostnames via DNS resolution but used the original hostname for the actual HTTP request, allowing DNS rebinding (TOCTOU) attacks.
+- **Fix**: Both `api/fetch.js` and `server.py` now pin the resolved IP address and use it for the TCP connection via custom DNS lookup callbacks (Node.js) and `http.client` with `PinnedHTTPSConnection` (Python).
+
+#### IPv6 Link-Local Range (#17, #27)
+- **Issue**: `isPrivateIPv6` only blocked addresses starting with `fe80`, missing the full `fe80::/10` range (fe80–febf).
+- **Fix**: Uses regex `/^fe[89ab]/i` to cover the entire link-local prefix space.
+
+#### Content Security Policy on Proxy (#26)
+- **Issue**: Proxy endpoint forwarded upstream `Content-Type` without CSP, allowing execution of proxied HTML payloads.
+- **Fix**: All proxy responses include `Content-Security-Policy: default-src 'none'`.
+
+#### Streaming Resource Exhaustion (#28)
+- **Issue**: Responses without `Content-Length` could stream indefinitely, exhausting server resources.
+- **Fix**: 60-second idle timeout and 5-minute maximum streaming time enforced on all proxy responses.
 
 ### Version 1.1.0 (2026-02-02)
 

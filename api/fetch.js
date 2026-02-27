@@ -1,5 +1,8 @@
 const MAX_CONTENT_LENGTH = 2 * 1024 * 1024 * 1024; // 2 GB
 const MAX_REDIRECTS = 5;
+const CONNECT_TIMEOUT_MS = 30_000;     // 30s connection timeout
+const STREAM_IDLE_TIMEOUT_MS = 60_000; // 60s idle timeout during streaming
+const MAX_STREAM_TIME_MS = 5 * 60_000; // 5 min max total streaming time
 
 /**
  * Parse an IP address from a hostname string, handling IPv4, IPv6,
@@ -66,10 +69,10 @@ function isPrivateIPv4(address) {
  * Operates on the normalized lowercase string form.
  */
 function isPrivateIPv6(address) {
-  if (address === '::1' || address === '::') return true;              // Loopback / unspecified
+  if (address === '::1' || address === '::') return true;                // Loopback / unspecified
   if (address.startsWith('fc') || address.startsWith('fd')) return true; // Unique local (ULA)
-  if (address.startsWith('fe80')) return true;                           // Link-local
-  if (address.startsWith('ff')) return true;                             // Multicast
+  if (/^fe[89ab]/i.test(address)) return true;                           // Link-local fe80::/10
+  if (address.startsWith('ff')) return true;                              // Multicast
   // IPv4-mapped should already be caught by parseIP, but guard here too
   if (address.startsWith('::ffff:')) return true;
   return false;
@@ -101,71 +104,122 @@ function setSecurityHeaders(res) {
 }
 
 /**
- * Validate a URL target against SSRF protections.
- * Checks both hostname and resolved IP address.
+ * Validate a URL target against SSRF protections and resolve DNS.
+ * Returns { ip, family } on success, or null (after sending error response) on failure.
+ * The returned IP is pinned for use in the subsequent request to prevent DNS rebinding.
  */
 async function validateTarget(target, res) {
   if (!['http:', 'https:'].includes(target.protocol)) {
     setSecurityHeaders(res);
     res.status(400).json({ error: 'Only HTTP(S) URLs are supported' });
-    return false;
+    return null;
   }
 
   if (isPrivateHost(target.hostname)) {
     setSecurityHeaders(res);
     res.status(403).json({ error: 'Private network addresses are not allowed' });
-    return false;
+    return null;
   }
 
-  // Resolve DNS to guard against hostnames that map to private IPs
+  // For IP literals, return directly after validation
   const ip = parseIP(target.hostname);
-  if (!ip) {
-    // It's a hostname — resolve it
-    try {
-      const { resolve4, resolve6 } = await import('node:dns/promises');
+  if (ip) {
+    return { ip: ip.address, family: ip.version };
+  }
 
-      let resolved = false;
-      try {
-        const ipv4Addrs = await resolve4(target.hostname);
-        for (const addr of ipv4Addrs) {
-          if (isPrivateIPv4(addr)) {
-            setSecurityHeaders(res);
-            res.status(403).json({ error: 'Private network addresses are not allowed' });
-            return false;
-          }
-          resolved = true;
-        }
-      } catch {
-        // No A record; try AAAA below
-      }
+  // Hostname — resolve DNS and validate all resulting IPs
+  const { resolve4, resolve6 } = await import('node:dns/promises');
+  let pinnedIP = null;
+  let pinnedFamily = 4;
 
-      try {
-        const ipv6Addrs = await resolve6(target.hostname);
-        for (const addr of ipv6Addrs) {
-          if (isPrivateIPv6(addr.toLowerCase())) {
-            setSecurityHeaders(res);
-            res.status(403).json({ error: 'Private network addresses are not allowed' });
-            return false;
-          }
-          resolved = true;
-        }
-      } catch {
-        // No AAAA record
-      }
-
-      if (!resolved) {
+  try {
+    const ipv4Addrs = await resolve4(target.hostname);
+    for (const addr of ipv4Addrs) {
+      if (isPrivateIPv4(addr)) {
         setSecurityHeaders(res);
-        res.status(400).json({ error: `Could not resolve hostname: ${target.hostname}` });
-        return false;
+        res.status(403).json({ error: 'Private network addresses are not allowed' });
+        return null;
       }
-    } catch (e) {
+    }
+    if (ipv4Addrs.length > 0) {
+      pinnedIP = ipv4Addrs[0];
+      pinnedFamily = 4;
+    }
+  } catch (err) {
+    if (err.code !== 'ENODATA' && err.code !== 'ENOTFOUND') {
       setSecurityHeaders(res);
-      res.status(400).json({ error: `Could not resolve hostname: ${target.hostname}` });
-      return false;
+      res.status(400).json({ error: `DNS resolution failed: ${err.code || err.message}` });
+      return null;
     }
   }
 
-  return true;
+  try {
+    const ipv6Addrs = await resolve6(target.hostname);
+    for (const addr of ipv6Addrs) {
+      if (isPrivateIPv6(addr.toLowerCase())) {
+        setSecurityHeaders(res);
+        res.status(403).json({ error: 'Private network addresses are not allowed' });
+        return null;
+      }
+    }
+    if (!pinnedIP && ipv6Addrs.length > 0) {
+      pinnedIP = ipv6Addrs[0];
+      pinnedFamily = 6;
+    }
+  } catch (err) {
+    if (err.code !== 'ENODATA' && err.code !== 'ENOTFOUND' && !pinnedIP) {
+      setSecurityHeaders(res);
+      res.status(400).json({ error: `DNS resolution failed: ${err.code || err.message}` });
+      return null;
+    }
+  }
+
+  if (!pinnedIP) {
+    setSecurityHeaders(res);
+    res.status(400).json({ error: `Could not resolve hostname: ${target.hostname}` });
+    return null;
+  }
+
+  return { ip: pinnedIP, family: pinnedFamily };
+}
+
+/**
+ * Make an HTTP(S) request pinned to a pre-validated IP address.
+ * Uses Node's http/https modules with a custom lookup callback to prevent
+ * DNS rebinding (TOCTOU between validation and connection).
+ */
+async function pinnedRequest(urlString, pinnedIP, pinnedFamily) {
+  const http = await import('node:http');
+  const https = await import('node:https');
+
+  const url = new URL(urlString);
+  const isHTTPS = url.protocol === 'https:';
+  const mod = isHTTPS ? https : http;
+
+  return new Promise((resolve, reject) => {
+    const req = mod.request({
+      method: 'GET',
+      hostname: url.hostname,
+      port: Number(url.port) || (isHTTPS ? 443 : 80),
+      path: url.pathname + url.search,
+      headers: {
+        'User-Agent': 'reSOURCERY/2.4 (+https://resourcery.app)',
+        'Host': url.host
+      },
+      timeout: CONNECT_TIMEOUT_MS,
+      lookup: (_hostname, _options, callback) => {
+        callback(null, pinnedIP, pinnedFamily);
+      }
+    }, (response) => {
+      resolve(response);
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy(new Error('Connection timed out'));
+    });
+    req.end();
+  });
 }
 
 export default async function handler(req, res) {
@@ -191,25 +245,25 @@ export default async function handler(req, res) {
     return;
   }
 
-  const allowed = await validateTarget(target, res);
-  if (!allowed) return;
+  const validation = await validateTarget(target, res);
+  if (!validation) return;
+
+  let pinnedIP = validation.ip;
+  let pinnedFamily = validation.family;
 
   try {
-    // Follow redirects manually to re-validate each hop against SSRF
+    const { pipeline } = await import('node:stream/promises');
     let currentURL = target.toString();
     let response;
 
     for (let hops = 0; hops < MAX_REDIRECTS; hops++) {
-      response = await fetch(currentURL, {
-        redirect: 'manual',
-        headers: {
-          'User-Agent': 'reSOURCERY/2.3 (+https://resourcery.app)'
-        }
-      });
+      response = await pinnedRequest(currentURL, pinnedIP, pinnedFamily);
 
-      const status = response.status;
+      const status = response.statusCode;
       if (status >= 300 && status < 400) {
-        const location = response.headers.get('location');
+        response.resume(); // drain body to free socket
+
+        const location = response.headers.location;
         if (!location) {
           setSecurityHeaders(res);
           res.status(502).json({ error: 'Redirect without Location header' });
@@ -225,37 +279,41 @@ export default async function handler(req, res) {
           return;
         }
 
-        const redirectAllowed = await validateTarget(redirectTarget, res);
-        if (!redirectAllowed) return;
+        const redirectValidation = await validateTarget(redirectTarget, res);
+        if (!redirectValidation) return;
 
         currentURL = redirectTarget.toString();
+        pinnedIP = redirectValidation.ip;
+        pinnedFamily = redirectValidation.family;
         continue;
       }
 
       break;
     }
 
-    if (!response || (response.status >= 300 && response.status < 400)) {
+    if (!response || (response.statusCode >= 300 && response.statusCode < 400)) {
       setSecurityHeaders(res);
       res.status(502).json({ error: 'Too many redirects' });
       return;
     }
 
-    if (!response.ok) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      response.resume();
       setSecurityHeaders(res);
-      res.status(response.status).json({ error: `Upstream request failed: HTTP ${response.status}` });
+      res.status(response.statusCode).json({ error: `Upstream request failed: HTTP ${response.statusCode}` });
       return;
     }
 
-    const contentLength = Number(response.headers.get('content-length') || 0);
+    const contentLength = Number(response.headers['content-length'] || 0);
     if (contentLength > MAX_CONTENT_LENGTH) {
+      response.resume();
       setSecurityHeaders(res);
       res.status(413).json({ error: 'Remote file exceeds 2 GB limit' });
       return;
     }
 
     setSecurityHeaders(res);
-    const upstreamType = response.headers.get('content-type');
+    const upstreamType = response.headers['content-type'];
     if (upstreamType) {
       res.setHeader('Content-Type', upstreamType);
     }
@@ -264,17 +322,26 @@ export default async function handler(req, res) {
     }
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Stream the response body instead of buffering into memory
-    if (response.body) {
-      const { Readable } = await import('node:stream');
-      const { pipeline } = await import('node:stream/promises');
-      res.status(200);
-      await pipeline(Readable.fromWeb(response.body), res);
-    } else {
-      res.status(200).end();
+    // Stream with timeout protection against indefinite connections (#28)
+    res.status(200);
+
+    const streamTimer = setTimeout(() => {
+      response.destroy(new Error('Maximum streaming time exceeded'));
+    }, MAX_STREAM_TIME_MS);
+
+    response.setTimeout(STREAM_IDLE_TIMEOUT_MS, () => {
+      response.destroy(new Error('Stream idle timeout'));
+    });
+
+    try {
+      await pipeline(response, res);
+    } finally {
+      clearTimeout(streamTimer);
     }
   } catch (error) {
-    setSecurityHeaders(res);
-    res.status(502).json({ error: `Proxy request failed: ${error.message}` });
+    if (!res.headersSent) {
+      setSecurityHeaders(res);
+      res.status(502).json({ error: `Proxy request failed: ${error.message}` });
+    }
   }
 }
