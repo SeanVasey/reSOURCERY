@@ -15,6 +15,10 @@ Desktop.ini
 *.swo
 *~
 
+# Python
+__pycache__/
+*.pyc
+
 # Node (if ever needed)
 node_modules/
 npm-debug.log*
