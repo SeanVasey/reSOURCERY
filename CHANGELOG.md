@@ -7,13 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-02-27
+
+### Security
+- **SSRF: Block private IPv6 forms** (#17): `isPrivateHost` now parses IPv4-mapped loopback (`::ffff:7f00:1`), link-local (`fe80::1`), multicast, and reserved IPv6 ranges instead of relying on prefix-only regex patterns.
+- **SSRF: Re-validate redirect targets** (#18): Proxy handler now follows redirects manually (`redirect: 'manual'`) and re-validates each hop against SSRF protections, preventing attackers from redirecting to private IPs.
+- **SSRF: DNS resolution bypass** (#19, #21): Both `api/fetch.js` and `server.py` now resolve hostnames via DNS before validating, blocking public domains that resolve to private IP addresses.
+- **Memory exhaustion** (#20, #22): Proxy responses are now streamed directly to clients instead of buffering entire bodies into memory, preventing OOM crashes for large files on constrained environments.
+
 ### Fixed
 - URL processing now retries through a hardened `/api/fetch` proxy when direct browser fetch is blocked by CORS/network policies, reducing fetch failures for remote media sources.
 - Vercel SPA rewrite now excludes `/api/*` paths so serverless functions are reachable in production.
 - Local development server now supports `/api/fetch` to match production URL-processing behavior during tests.
 
-### Security
-- Added SSRF guardrails for proxy usage: blocks localhost/private-network targets, enforces HTTP(S)-only URLs, and caps proxied response size at 2 GB.
+### Changed
+- Service worker cache bumped to `resourcery-v2.3.1`.
 
 ## [2.3.0] - 2026-02-22
 
