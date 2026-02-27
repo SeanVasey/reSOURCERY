@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-02-27
+
+### Security
+- **DNS rebinding mitigation** (#24, #25): Both `api/fetch.js` and `server.py` now pin DNS-resolved IPs and use them for the actual TCP connection, preventing TOCTOU attacks where DNS records change between validation and connection. Node.js proxy uses `http.request`/`https.request` with a custom `lookup` callback; Python proxy uses `http.client` with `PinnedHTTPSConnection` for proper TLS SNI handling.
+- **IPv6 link-local range fix** (#17, #27): `isPrivateIPv6` now blocks the full `fe80::/10` range (fe80–febf) instead of only `fe80`-prefixed addresses. Python's `ipaddress.ip_address.is_link_local` already handled this correctly.
+- **Content Security Policy on proxy** (#26): Both `server.py` proxy responses and JSON error responses now include `Content-Security-Policy: default-src 'none'`, preventing browser execution of proxied HTML content.
+- **Streaming timeout protection** (#28): `api/fetch.js` enforces a 60-second idle timeout and 5-minute maximum streaming time to prevent resource exhaustion from slow or infinite upstream responses. `server.py` uses a 60-second per-read socket timeout.
+- **DNS error handling** (#24): Empty `catch` blocks in DNS resolution replaced with error-code-aware handling that only suppresses expected `ENODATA`/`ENOTFOUND` errors and reports unexpected failures.
+
+### Changed
+- Service worker cache bumped to `resourcery-v2.4.0`.
+- `api/fetch.js` now uses Node.js `http`/`https` modules instead of the `fetch()` API for upstream requests, enabling DNS pinning via the `lookup` callback.
+- `server.py` now uses `http.client` instead of `urllib.request` for upstream requests, enabling DNS-pinned connections with proper TLS SNI.
+- Version fallbacks in `index.html` updated from v2.1/v2.1.0 to v2.4/v2.4.0.
+
 ## [2.3.1] - 2026-02-27
 
 ### Security
