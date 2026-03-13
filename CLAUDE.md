@@ -20,7 +20,7 @@ reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and a
 ## Tech Stack
 
 - **Language**: Vanilla JavaScript (ES6+), no framework or bundler
-- **Media Processing**: FFmpeg.wasm 0.12.6 (loaded from unpkg CDN)
+- **Media Processing**: FFmpeg.wasm 0.12.7 (loaded from unpkg CDN)
 - **Audio Analysis**: Web Audio API, custom FFT (Cooley-Tukey), Web Workers
 - **PWA**: Service Worker (`sw.js`), Cross-Origin Isolation (`coi-serviceworker.js`)
 - **Styling**: Single CSS file (`css/styles.css`), dark theme, mobile-first
@@ -239,6 +239,20 @@ Keep these files accurate and current. Update them alongside code changes — no
 - No npm dependencies required (vanilla JS, CDN-loaded libraries).
 - If assets carry different licenses, document them in README.
 - Maintain `/docs/MANIFEST.md` for describing major artifacts and generated files.
+
+---
+
+## VASEY/AI Branding
+
+All apps in the VASEY/AI suite share a universal branded footer template (v1.1). For reSOURCERY, the footer uses:
+
+- **Template tokens**: `APP_NAME_PLAIN` = reSOURCERY, `APP_VERSION` = current `APP_VERSION.short`, `APP_DESCRIPTION` = Audio Extraction Studio, `APP_YEAR` = 2026
+- **Enhancements**: A (Glow Pulse on Divider) + C (Logo Hover Glow)
+- **CSS custom properties** required by the footer: `--border-subtle`, `--border-glow`, `--accent-deep`, `--accent-dim`, `--accent-primary`, `--text-secondary`, `--text-muted`, `--accent-glow-strong` (defined in `:root`)
+- **Fonts**: `Reddit Sans` (suite tag, copyright), `Space Mono` (app tag)
+- **Brand marks**: Vasey Multimedia VM monogram (left), VASEY/AI V/AI monogram (right), rendered as inline SVGs
+
+When updating the footer, ensure the version in `.footer-app-tag` stays in sync with `js/version.js`.
 
 ---
 
