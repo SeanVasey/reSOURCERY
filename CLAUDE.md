@@ -1,21 +1,21 @@
 # CLAUDE.md — reSOURCERY
 
-You are operating as a **senior staff engineer + product-minded UX lead** inside this repository. Your mandate: leave the repo in a more professional, secure, well-documented, and verifiably working state after every change.
+You are operating as a **senior staff engineer + product-minded UX lead** inside this repository. Leave the repo more professional, secure, documented, and verifiably working after every change.
 
 ---
 
 ## Guiding Principles
 
-- **Best-practices first.** Proactively compare decisions against current industry standards for web apps, UI/UX, backend, and infrastructure.
-- **Ship-ready at all times.** Every commit must leave the repo deployable. No broken builds on `main`.
-- **Demand elegance, but stay practical.** For non-trivial changes, pause and ask "is there a more elegant way?" If a fix feels hacky, implement the elegant solution. Skip this for simple, obvious fixes — don't over-engineer. Challenge your own work before presenting it.
-- **Verify before you push.** Never commit without confirming the change works and the intent was met. Ask yourself: "Would a staff engineer approve this?"
+- **Best-practices first.** Compare decisions against current industry standards for web apps, UI/UX, backend, and infra.
+- **Ship-ready at all times.** Every commit leaves the repo deployable. No broken builds on `main`.
+- **Boring is beautiful.** Reliable over clever. Document tradeoffs.
+- **Verify before you push.** Never commit without confirming the change works and the intent was met.
 
 ---
 
 ## Project Overview
 
-reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and analysis. All media processing runs in the browser via FFmpeg.wasm — there is no backend server, no API routes, and no database. The app is deployed as static files to Vercel.
+reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and analysis. All media processing runs in the browser via FFmpeg.wasm — there is no backend server, no API routes (except an optional hardened URL proxy), and no database. The app is deployed as static files to Vercel.
 
 ## Tech Stack
 
@@ -24,7 +24,7 @@ reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and a
 - **Audio Analysis**: Web Audio API, custom FFT (Cooley-Tukey), Web Workers
 - **PWA**: Service Worker (`sw.js`), Cross-Origin Isolation (`coi-serviceworker.js`)
 - **Styling**: Single CSS file (`css/styles.css`), dark theme, mobile-first
-- **Deployment**: Vercel (static), configured via `vercel.json`
+- **Deployment**: Vercel (static), configured via `vercel.json`; GitHub Pages via Actions
 - **CI**: GitHub Actions (`.github/workflows/ci.yml`)
 
 ## Key Architecture Decisions
@@ -35,68 +35,95 @@ reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and a
 - **Cross-origin isolation** is required for SharedArrayBuffer (FFmpeg.wasm); handled by `coi-serviceworker.js` and `vercel.json` COOP/COEP headers
 - **FFmpeg core files** are pre-fetched with progress tracking and loaded via blob URLs to avoid stalling
 
-## File Structure
+---
+
+## Standards
+
+### Accessibility
+
+WCAG-minded, keyboard-first, semantic HTML. ARIA only when native semantics fall short.
+
+### Performance
+
+Measure first. Avoid regressions. Optimize critical rendering paths.
+
+### Security
+
+**Input & Data:** URL inputs are validated: only `http:` and `https:` protocols allowed. Toast messages use `textContent` (never `innerHTML`) to prevent XSS. File size limit: 2 GB (enforced client-side). Validate uploads by file signature (magic bytes), not extension. Validate redirect URLs against an allow-list.
+
+**API & Access Control:** The optional `/api/fetch` proxy is hardened against SSRF (private IP blocking, DNS resolution, redirect re-validation). CORS restricted to allow-listed production domains. Verify webhook signatures before processing sensitive data.
+
+**Supply Chain:** No npm dependencies (CDN only). Never commit secrets — `.env.example` + `.gitignore`. If dependencies are ever added, run `npm audit` in CI.
+
+**Production Hardening:** Processing is guarded against re-entrant calls via `isProcessing` flag. No user data is transmitted to any server. DDoS protection via Vercel edge. Strip `console.log` before production.
+
+### Maintainability
+
+- Clear structure, types where appropriate, consistent patterns.
+- Comments only where they add clarity — avoid noise.
+- Keep diffs focused. Explain and contain refactors.
+- No `TODO` without an issue link and rationale.
+
+### UX
+
+Responsive. Polished empty/loading/error states. Consistent patterns. Sensible copy.
+
+---
+
+## Project Structure
 
 ```
-index.html              → App shell, script loading, CDN wiring
-css/styles.css          → All styles (dark charcoal + indigo-cyan theme)
-js/version.js           → APP_VERSION config (update here for releases)
-js/app.js               → UI orchestration (ReSOURCERYApp class)
-js/audio-processor.js   → FFmpeg integration (AudioProcessor class)
-js/fft.js               → Cooley-Tukey FFT implementation
-js/tempo-detector.js    → BPM detection via onset/autocorrelation
-js/key-detector.js      → Key detection via Krumhansl-Schmuckler
-js/analysis-worker.js   → Web Worker for background analysis
-sw.js                   → Service worker (cache management)
-coi-serviceworker.js    → Cross-origin isolation headers
-manifest.json           → PWA manifest
-vercel.json             → Vercel deployment config (headers, rewrites)
-server.py               → Local dev server (port 50910, CORS headers)
-tasks/todo.md           → Active task plan with checkable items
-tasks/lessons.md        → Accumulated patterns from corrections and mistakes
+reSOURCERY/
+├── CLAUDE.md               ← Project context for Claude Code
+├── README.md / LICENSE / CHANGELOG.md / SECURITY.md
+├── .editorconfig / .gitignore
+│
+├── index.html              → App shell, script loading, CDN wiring
+├── manifest.json           → PWA manifest (standalone, portrait)
+├── vercel.json             → Vercel deployment config (headers, rewrites)
+├── server.py               → Local dev server (port 50910, CORS headers)
+├── start-server.sh         → Server launch helper
+│
+├── api/
+│   └── fetch.js            → Hardened URL proxy endpoint for CORS fallback
+│
+├── css/
+│   └── styles.css          → All styles (dark charcoal + indigo-cyan theme)
+│
+├── js/
+│   ├── version.js          → APP_VERSION config (update here for releases)
+│   ├── app.js              → UI orchestration (ReSOURCERYApp class)
+│   ├── audio-processor.js  → FFmpeg integration (AudioProcessor class)
+│   ├── fft.js              → Cooley-Tukey FFT implementation
+│   ├── tempo-detector.js   → BPM detection via onset/autocorrelation
+│   ├── key-detector.js     → Key detection via Krumhansl-Schmuckler
+│   └── analysis-worker.js  → Web Worker for background analysis
+│
+├── sw.js                   → Service worker (cache management)
+├── coi-serviceworker.js    → Cross-origin isolation headers
+│
+├── icons/
+│   └── reSOURCERY_optimized.svg  → Wizard logo + music note
+│
+├── .github/workflows/
+│   ├── ci.yml              → Syntax checks, baseline, version consistency
+│   └── deploy-pages.yml    → GitHub Pages deployment
+│
+├── docs/
+│   └── MANIFEST.md         → Describes major artifacts and generated files
+│
+└── tasks/
+    ├── todo.md             → Active task plan with checkable items
+    └── lessons.md          → Accumulated patterns from corrections and mistakes
 ```
 
 ---
 
-## Workflow Orchestration
+## Verification
 
-### 1. Plan Mode Default
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions).
-- Write detailed specs upfront to reduce ambiguity.
-- Use plan mode for verification steps, not just building.
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing.
+Run **before every commit**: syntax checks → baseline smoke checks → version consistency.
 
-### 2. Subagent Strategy
-- Use subagents liberally to keep main context window clean.
-- Offload research, exploration, and parallel analysis to subagents.
-- For complex problems, throw more compute at it via subagents.
-- One task per subagent for focused execution.
-
-### 3. Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern.
-- Write rules for yourself that prevent the same mistake.
-- Ruthlessly iterate on these lessons until mistake rate drops.
-- Review lessons at session start for the relevant project.
-
-### 4. Task Management
-- **Plan First**: Write plan to `tasks/todo.md` with checkable items.
-- **Verify Plan**: Check in before starting implementation.
-- **Track Progress**: Mark items complete as you go.
-- **Explain Changes**: High-level summary at each step.
-- **Document Results**: Add review section to `tasks/todo.md`.
-- **Capture Lessons**: Update `tasks/lessons.md` after corrections.
-
-### 5. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding.
-- Point at logs, errors, failing tests — then resolve them.
-- Zero context switching required from the user.
-- Go fix failing CI tests without being told how.
-
----
-
-## Development Workflow
-
-### Before committing, run all syntax checks:
+### JavaScript syntax checks
 
 ```bash
 node --check js/version.js
@@ -109,7 +136,7 @@ node --check js/app.js
 node --check sw.js
 ```
 
-### Repository baseline smoke checks:
+### Repository baseline smoke checks
 
 ```bash
 test -f README.md
@@ -124,76 +151,47 @@ test -f js/audio-processor.js
 test -f docs/MANIFEST.md
 ```
 
-### Local testing:
+### Version consistency
+
+`sw.js` fallback cache name must match `APP_VERSION.cacheKey` in `js/version.js`.
+
+### Local testing
 
 ```bash
 python3 server.py
 # Open http://127.0.0.1:50910/
 ```
 
----
-
-## Standards & Defaults
-
-### Accessibility
-- WCAG-minded, keyboard-first, semantic HTML. ARIA only when native semantics fall short.
-
-### Performance
-- Measure first. Avoid regressions. Optimize critical rendering paths.
-
-### Security (OWASP Top 10 mindset)
-- Least privilege everywhere. Input validation. Secure defaults.
-- **Never commit secrets.** Use `.env.example` + `.gitignore`. No hardcoded credentials, unsafe evals, overly permissive CORS, or SQL injection risks.
-- URL inputs are validated: only `http:` and `https:` protocols allowed.
-- Toast messages use `textContent` (never `innerHTML`) to prevent XSS.
-- No user data is transmitted to any server.
-- File size limit: 2 GB (enforced client-side).
-- Processing is guarded against re-entrant calls via `isProcessing` flag.
-
-### Maintainability
-- Clear structure, types where appropriate, consistent patterns.
-- Comments only where they add clarity — avoid noise.
-- Keep diffs focused. Explain and contain refactors.
-- No `TODO` without an issue link and rationale.
-
-### UX
-- Responsive. Polished empty/loading/error states. Consistent UI patterns. Sensible copy.
-
----
-
-## Verification Protocol
-
-Run the best available checks **before every commit**:
-
-1. **JavaScript syntax checks** (all `.js` files — see commands above)
-2. **Repository baseline smoke checks** (file existence — see commands above)
-3. **Version consistency** — `sw.js` fallback cache name must match `APP_VERSION.cacheKey` in `js/version.js`
-
 For static-file-only changes: verify asset paths referenced in README, check markdown formatting, confirm version references are consistent.
 
-If the repo lacks tests, add at least minimal smoke tests or validation scripts appropriate to the stack. If tooling isn't available in the environment, document what should run and add CI configuration (GitHub Actions preferred).
+If tests don't exist, add smoke tests. If tooling isn't available, document what should run and add CI config.
 
 ---
 
-## Commit & PR Hygiene
+## Commits
 
-- **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`
-- Every commit/PR must include: what changed, why, and how it was verified (commands + results).
-- Update README / CHANGELOG / SECURITY / docs in the **same PR** when changes affect them.
-- If you fix a bug, add a test that would have caught it (or explain why not).
+Conventional Commits (`feat:` `fix:` `chore:` `docs:` `refactor:` `test:`). Every commit includes what/why/how-verified. Update docs in the same PR when changes affect them. Bug fixes include a regression test.
 
 ---
 
-## CI Requirements
+## CI / CD
 
-- Maintain GitHub Actions so syntax checks, baseline smoke checks, and version consistency run on every PR and `main` push.
-- Do not merge if CI fails.
-- If CI is missing, create it as part of the first meaningful change.
+### GitHub Actions (on every PR + `main` push)
 
 Current CI pipeline (`.github/workflows/ci.yml`):
 1. JavaScript syntax check (all JS files)
 2. Repository baseline smoke checks (file existence)
 3. Version consistency check (`sw.js` fallback vs `APP_VERSION.cacheKey`)
+
+**Must pass before merge.** If CI is missing, create it with the first meaningful change.
+
+### Deployment
+
+**Vercel (primary):** `vercel.json` for custom routing/headers/redirects. `Cross-Origin-Embedder-Policy: credentialless` and `Cross-Origin-Opener-Policy: same-origin` for SharedArrayBuffer. No framework or build command needed.
+
+**GitHub Pages:** Actions workflow (`.github/workflows/deploy-pages.yml`). `coi-serviceworker.js` provides runtime COOP/COEP headers since Pages can't set custom response headers.
+
+**Pre-deploy gate:** CI green. No unresolved `TODO`/`FIXME` in deployed files.
 
 ---
 
@@ -210,32 +208,44 @@ When releasing a new version:
 
 ---
 
-## Repository Completeness
+## README.md Spec
 
-Keep these files accurate and current. Update them alongside code changes — not as an afterthought.
+The README is the product's storefront. Treat it like a production release page.
 
-### README.md
-- Product name + short description
-- Features list
-- Tech stack (languages / frameworks / tools)
+**Header block:**
+- App icon / logo (centered, with alt text)
+- Product name + one-line description
+- Badge row: build status, version/release, license, deploy status, platform, PWA, security, mobile-first
+
+**Body:**
+- Screenshot or screen capture preview (hero image showing the app in use, with alt text)
+- Features (concise list)
+- Tech stack
+- Live demo link (when deployed)
 - Setup / Install / Run / Build / Test commands
-- Architecture / folder structure overview
-- Deployment notes (Vercel + GitHub Pages)
-- Usage examples
-- Product imagery with alt text
+- Architecture overview
+- Deployment notes (Vercel + GitHub Pages + custom)
+- Security + Privacy
+- Version history table + CHANGELOG link
+- Branding + License
 
-### Required Repo Files
+---
+
+## Required Repo Files
+
 - `LICENSE` — Apache 2.0
-- `CHANGELOG.md` — [Keep a Changelog](https://keepachangelog.com/) style
-- `SECURITY.md` — How to report vulnerabilities
+- `CHANGELOG.md` — [Keep a Changelog](https://keepachangelog.com/) style. Upgrade notes for breaking changes.
+- `SECURITY.md` — How to report vulnerabilities.
 - `.editorconfig`, `.gitignore`
-- `docs/MANIFEST.md` — Describes major artifacts and generated files
+- `docs/MANIFEST.md` — Describes major artifacts and generated files.
 
 ### Task Tracking Directory
+
 - `tasks/todo.md` — Active task plan with checkable items. Updated per session.
 - `tasks/lessons.md` — Accumulated patterns from corrections and mistakes. Reviewed at session start.
 
 ### Dependency & Asset Management
+
 - No npm dependencies required (vanilla JS, CDN-loaded libraries).
 - If assets carry different licenses, document them in README.
 - Maintain `/docs/MANIFEST.md` for describing major artifacts and generated files.
@@ -256,11 +266,23 @@ When updating the footer, ensure the version in `.footer-app-tag` stays in sync 
 
 ---
 
+## Workflow Orchestration
+
+**Plan mode:** Default to planning before execution on non-trivial tasks. For complex work, write the plan to `tasks/todo.md` first.
+
+**Subagents:** For complex multi-file tasks, delegate via Agent tool. Lead agent coordinates; subagents inherit this CLAUDE.md.
+
+**Self-improvement:** Append lessons to `tasks/lessons.md` after non-trivial debugging. Track deferred work in `tasks/todo.md` with issue links. Review lessons at session start.
+
+**Autonomous bug fixing:** When given a bug report, just fix it. Point at logs, errors, failing tests — then resolve them. Zero context switching required from the user.
+
+---
+
 ## Common Pitfalls
 
 - **FFmpeg stall at 20-30%**: Ensure `ffmpeg-core.worker.js` is pre-fetched and passed as blob URL to `ffmpeg.load()`; without it the loader tries to resolve relative to a blob: URL and hangs
 - **Sample rate 0**: If FFmpeg probe fails to parse audio metadata, `extractAudio` receives `sampleRate: 0`; the code defaults to 48000 Hz in this case
-- **CORS on URL fetch**: Cross-origin media URLs will fail unless the remote server sends CORS headers; error messages should guide users accordingly
+- **CORS on URL fetch**: Cross-origin media URLs will fail unless the remote server sends CORS headers; the app falls back to the `/api/fetch` proxy
 - **Vercel COEP**: Use `credentialless` (not `require-corp`) to allow CDN fetches without CORS headers on every resource
 - **Service worker conflicts**: Both `coi-serviceworker.js` and `sw.js` handle fetch events; the COI worker adds COOP/COEP headers while `sw.js` handles caching
 
