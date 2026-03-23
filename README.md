@@ -24,7 +24,10 @@
 
 ---
 
-reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from multimedia sources. It runs primarily in the browser using WebAssembly-based audio processing, with an optional hardened URL proxy endpoint for hosts that block direct browser fetches.
+reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from multimedia sources. It runs entirely in the browser using WebAssembly-based audio processing, with an optional hardened URL proxy endpoint for hosts that block direct browser fetches. No backend, no database — just drop in your media and extract the magic.
+
+<!-- Hero preview — replace with an actual app screenshot -->
+<!-- <p align="center"><img src="docs/preview.png" alt="reSOURCERY app screenshot showing audio extraction in progress" width="720"></p> -->
 
 ## Features
 
@@ -146,8 +149,16 @@ reSOURCERY/
 │   ├── tempo-detector.js   # BPM detection
 │   ├── key-detector.js     # Key detection (Krumhansl-Schmuckler)
 │   └── analysis-worker.js  # Web Worker for background analysis
-└── icons/
-    └── reSOURCERY_optimized.svg  # Wizard logo + music note
+├── icons/
+│   └── reSOURCERY_optimized.svg  # Wizard logo + music note
+├── docs/
+│   └── MANIFEST.md         # Artifact and generated file descriptions
+├── tasks/
+│   ├── todo.md             # Active task plan
+│   └── lessons.md          # Accumulated patterns
+└── .github/workflows/
+    ├── ci.yml              # Syntax, baseline, version checks
+    └── deploy-pages.yml    # GitHub Pages deployment
 ```
 
 ## Security
@@ -203,8 +214,9 @@ node --check sw.js
 
 # Repository baseline checks
 test -f README.md && test -f CHANGELOG.md && test -f LICENSE && \
-test -f SECURITY.md && test -f index.html && test -f css/styles.css && \
-test -f js/app.js && test -f js/audio-processor.js && echo "All checks passed"
+test -f SECURITY.md && test -f .editorconfig && test -f index.html && \
+test -f css/styles.css && test -f js/app.js && test -f js/audio-processor.js && \
+test -f docs/MANIFEST.md && echo "All checks passed"
 ```
 
 ### CI / CD
