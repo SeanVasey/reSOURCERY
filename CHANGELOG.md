@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Top safe-area scrim**: Page content no longer scrolls visibly into the iOS status bar / notch / Dynamic Island region. A fixed, pointer-transparent `.top-safe-scrim` layer replicates the page background stack — `--color-bg-primary` (the top stop of `--gradient-dark-vertical`), the animated ambient glow, and the noise texture — opaque through `env(safe-area-inset-top)` with a short (≤16px) masked fade below it, so the inset is indistinguishable from the page background at rest (the fade lets the hero glow bleed through without a clipped edge) and scrolling content blends out before reaching the status icons. The ambient gradient and noise texture were promoted to `:root` custom properties (`--gradient-ambient`, `--noise-texture`) so the scrim and page share one definition.
+
 ## [2.4.0] - 2026-02-27
 
 ### Security
