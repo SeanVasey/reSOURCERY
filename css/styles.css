@@ -60,6 +60,12 @@
   --gradient-cyan-subtle: linear-gradient(135deg, var(--indigo-700) 0%, var(--teal-700) 100%);
   --gradient-dark-vertical: linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-dark) 100%);
   --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+  /* Ambient glow + noise: shared by the page background layers and .top-safe-scrim,
+     which must replicate them exactly — keep these as the single definition */
+  --gradient-ambient:
+    radial-gradient(ellipse at 20% 10%, var(--indigo-900) 0%, transparent 40%),
+    radial-gradient(ellipse at 80% 90%, var(--cyan-50) 0%, transparent 40%);
+  --noise-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 
   /* Glass Effect - Dark and glassy with blue tint */
   --glass-bg: rgba(12, 12, 22, 0.88);
@@ -158,7 +164,7 @@ body::before {
   pointer-events: none;
   opacity: 0.015;
   z-index: 2;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-image: var(--noise-texture);
 }
 
 /* App Container */
@@ -182,9 +188,7 @@ body::before {
   left: -50%;
   width: 200%;
   height: 200%;
-  background:
-    radial-gradient(ellipse at 20% 10%, var(--indigo-900) 0%, transparent 40%),
-    radial-gradient(ellipse at 80% 90%, var(--cyan-50) 0%, transparent 40%);
+  background: var(--gradient-ambient);
   pointer-events: none;
   z-index: 0;
   animation: ambientShift 20s ease-in-out infinite;
@@ -193,6 +197,60 @@ body::before {
 @keyframes ambientShift {
   0%, 100% { opacity: 0.6; transform: translate(0, 0); }
   50% { opacity: 0.4; transform: translate(-2%, 2%); }
+}
+
+/* ============================================
+   TOP SAFE-AREA SCRIM
+   Masks content scrolling under the iOS status bar /
+   notch / Dynamic Island. Replicates the page background
+   stack (gradient top stop + ambient glow + noise) so the
+   inset region is indistinguishable from the page itself.
+   Fixed overlay: occupies no layout space.
+   ============================================ */
+.top-safe-scrim {
+  /* Short fade below the inset: the hero glow (.hero-header::before) bleeds
+     above the header into this region at rest, so a hard opaque edge would
+     clip it into a visible line. Collapses to 0 when there is no inset. */
+  --scrim-fade: min(var(--safe-top), 16px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--safe-top) + var(--scrim-fade));
+  overflow: hidden;
+  pointer-events: none;
+  /* Above scrolling content (1) and body noise (2); below fixed chrome:
+     menu button (200), settings panel (300), toasts (400) */
+  z-index: 100;
+  /* Top stop of --gradient-dark-vertical: the page gradient spans the full
+     document height, so within the inset it renders as this flat color */
+  background: var(--color-bg-primary);
+  /* Opaque through the inset, then fades so passing content blends out */
+  -webkit-mask-image: linear-gradient(to bottom, #000 var(--safe-top), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 var(--safe-top), transparent 100%);
+}
+
+/* Continuation of the ambient glow (.app-container::before): identical
+   viewport geometry and animation, so the glow crosses the scrim boundary
+   without a seam. Both animations start on page load and stay in sync. */
+.top-safe-scrim::before {
+  content: '';
+  position: absolute;
+  top: -50vh;
+  left: -50vw;
+  width: 200vw;
+  height: 200vh;
+  background: var(--gradient-ambient);
+  animation: ambientShift 20s ease-in-out infinite;
+}
+
+/* Continuation of the body noise overlay; same tile origin (viewport top-left) */
+.top-safe-scrim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.015;
+  background-image: var(--noise-texture);
 }
 
 /* ============================================
