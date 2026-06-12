@@ -129,6 +129,11 @@ html {
   overflow-x: hidden;
 }
 
+/* Pinch-zoom is enabled (WCAG 1.4.4); suppress double-tap zoom on controls only */
+a, button, input, .toggle, .drop-zone {
+  touch-action: manipulation;
+}
+
 body {
   font-family: var(--font-body);
   font-weight: 400;
@@ -479,7 +484,8 @@ body::before {
   outline: none;
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 0.9375rem;
+  /* ≥16px prevents iOS Safari auto-zoom on focus now that pinch-zoom is enabled */
+  font-size: 1rem;
   padding: var(--space-sm);
 }
 
