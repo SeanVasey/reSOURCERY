@@ -5,7 +5,7 @@
   "start_url": "./",
   "display": "standalone",
   "background_color": "#050508",
-  "theme_color": "#4d7ccc",
+  "theme_color": "#08080c",
   "orientation": "portrait-primary",
   "scope": "./",
   "id": "resourcery",
