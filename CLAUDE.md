@@ -280,7 +280,7 @@ When updating the footer, ensure the version in `.footer-app-tag` stays in sync 
 
 ## Common Pitfalls
 
-- **FFmpeg stall at 20-30%**: Ensure `ffmpeg-core.worker.js` is pre-fetched and passed as blob URL to `ffmpeg.load()`; without it the loader tries to resolve relative to a blob: URL and hangs
+- **FFmpeg stall at 20-30%**: The default `@ffmpeg/core` package is single-threaded and does not ship `ffmpeg-core.worker.js`; only fetch/pass `workerURL` when intentionally switching to a multi-threaded core package that provides one.
 - **Sample rate 0**: If FFmpeg probe fails to parse audio metadata, `extractAudio` receives `sampleRate: 0`; the code defaults to 48000 Hz in this case
 - **CORS on URL fetch**: Cross-origin media URLs will fail unless the remote server sends CORS headers; the app falls back to the `/api/fetch` proxy
 - **Vercel COEP**: Use `credentialless` (not `require-corp`) to allow CDN fetches without CORS headers on every resource

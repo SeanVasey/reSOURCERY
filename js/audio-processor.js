@@ -17,7 +17,10 @@ class AudioProcessor {
     this.ffmpegCoreConfig = {
       coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
       wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
-      workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js'
+      // @ffmpeg/core is the single-threaded build; it intentionally has no
+      // ffmpeg-core.worker.js. Fetching a non-existent worker script makes
+      // every processing attempt fail before user media is handled.
+      workerURL: null
     };
 
     this.proxyEndpoint = '/api/fetch';
@@ -423,25 +426,28 @@ class AudioProcessor {
       const wasmBlob = new Blob([wasmData], { type: 'application/wasm' });
       const wasmBlobURL = URL.createObjectURL(wasmBlob);
 
-      // Download worker script so ffmpeg.load can resolve worker from blob URLs.
-      // Without this, the loader can stall around ~20-30% while trying to fetch
-      // ffmpeg-core.worker.js relative to a blob: URL.
-      this.updateStage('Preparing audio worker...');
-      let workerData;
-      try {
-        workerData = await this.withTimeout(
-          this.fetchWithProgress(workerURL, (progress) => {
-            this.updateProgress(23 + Math.round(progress * 2));
-          }),
-          30000,
-          'Audio worker download timed out. Please check your connection and try again.'
-        );
-      } catch (err) {
-        console.error('[AudioProcessor] Worker script download failed:', err);
-        throw err;
+      let workerBlobURL = null;
+      if (workerURL) {
+        // Multi-threaded FFmpeg cores need a worker script. The default
+        // single-threaded @ffmpeg/core build does not ship one, so only fetch
+        // this when a valid worker URL is explicitly configured.
+        this.updateStage('Preparing audio worker...');
+        let workerData;
+        try {
+          workerData = await this.withTimeout(
+            this.fetchWithProgress(workerURL, (progress) => {
+              this.updateProgress(23 + Math.round(progress * 2));
+            }),
+            30000,
+            'Audio worker download timed out. Please check your connection and try again.'
+          );
+        } catch (err) {
+          console.error('[AudioProcessor] Worker script download failed:', err);
+          throw err;
+        }
+        const workerBlob = new Blob([workerData], { type: 'text/javascript' });
+        workerBlobURL = URL.createObjectURL(workerBlob);
       }
-      const workerBlob = new Blob([workerData], { type: 'text/javascript' });
-      const workerBlobURL = URL.createObjectURL(workerBlob);
 
       // Load FFmpeg core with pre-downloaded blob URLs
       // Retry with exponential backoff (max 3 attempts) for transient failures
@@ -459,7 +465,7 @@ class AudioProcessor {
             this.ffmpeg.load({
               coreURL: coreJSBlobURL,
               wasmURL: wasmBlobURL,
-              workerURL: workerBlobURL,
+              ...(workerBlobURL ? { workerURL: workerBlobURL } : {}),
             }),
             45000,
             'Audio engine initialization timed out. Please refresh and retry.'
@@ -496,8 +502,8 @@ class AudioProcessor {
       }
 
       // Revoke core JS and WASM blob URLs — they are no longer needed after
-      // ffmpeg.load() compiles the WASM module.  Keep the worker blob URL alive
-      // because FFmpeg's internal Web Worker may still reference it; it gets
+      // ffmpeg.load() compiles the WASM module. Keep an optional worker blob URL
+      // alive because FFmpeg's internal Web Worker may reference it; it gets
       // revoked in destroy() instead.
       URL.revokeObjectURL(coreJSBlobURL);
       URL.revokeObjectURL(wasmBlobURL);
@@ -505,7 +511,7 @@ class AudioProcessor {
 
       if (lastLoadError) {
         // Worker URL is also useless on failure — clean it up now
-        URL.revokeObjectURL(workerBlobURL);
+        if (workerBlobURL) URL.revokeObjectURL(workerBlobURL);
         this._workerBlobURL = null;
         throw lastLoadError;
       }
