@@ -50,7 +50,7 @@
       <div class="brand-row">
         <img class="app-logo" src="icons/reSOURCERY_optimized.svg" alt="reSOURCERY" />
         <h1 class="app-title">reSOURCERY</h1>
-        <span class="version-badge" id="versionBadge">v2.4</span>
+        <span class="version-badge" id="versionBadge">v2.4.1</span>
       </div>
 
       <!-- Subtitle -->
@@ -397,7 +397,7 @@
         </a>
       </div>
       <div class="footer-suite-tag">A VASEY/AI Production</div>
-      <div class="footer-app-tag">reSOURCERY v2.4 &middot; Audio Extraction Studio</div>
+      <div class="footer-app-tag">reSOURCERY v2.4.1 &middot; Audio Extraction Studio</div>
       <div class="footer-copyright">
         &copy; 2026 <a href="https://vaseymultimedia.com" target="_blank" rel="noopener">VASEY Multimedia</a>. All rights reserved.<br>
         Designed &amp; engineered by <a href="https://vasey.ai" target="_blank" rel="noopener">VASEY/AI</a>
@@ -441,7 +441,7 @@
           </div>
         </div>
         <div class="settings-footer">
-          <span class="version-text" id="settingsVersion">v2.4.0</span>
+          <span class="version-text" id="settingsVersion">v2.4.1</span>
         </div>
       </div>
     </div>
@@ -466,12 +466,21 @@
     window.FFmpegUtil = {};
     window.FFmpegLoadErrors = [];
   </script>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js"
+  <!--
+    The @ffmpeg/ffmpeg wrapper MUST be served same-origin: it spawns its class
+    worker (js/vendor/814.ffmpeg.js) relative to its own script URL, and
+    browsers reject cross-origin classic workers. Loading it from a CDN breaks
+    all processing with "Failed to construct 'Worker'". The large ffmpeg-core
+    files remain CDN-hosted and are pre-fetched into blob URLs at runtime.
+    Vendored: @ffmpeg/ffmpeg@0.12.7 (ffmpeg.js + 814.ffmpeg.js),
+    @ffmpeg/util@0.12.1 (ffmpeg-util.js).
+  -->
+  <script src="js/vendor/ffmpeg.js"
     onload="window.FFmpegWASM.FFmpeg = FFmpegWASM.FFmpeg"
-    onerror="console.error('[reSOURCERY] Failed to load FFmpeg library from CDN'); window.FFmpegLoadErrors.push('ffmpeg')"></script>
-  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"
+    onerror="console.error('[reSOURCERY] Failed to load FFmpeg library'); window.FFmpegLoadErrors.push('ffmpeg')"></script>
+  <script src="js/vendor/ffmpeg-util.js"
     onload="window.FFmpegUtil.fetchFile = FFmpegUtil.fetchFile"
-    onerror="console.error('[reSOURCERY] Failed to load FFmpeg utilities from CDN'); window.FFmpegLoadErrors.push('util')"></script>
+    onerror="console.error('[reSOURCERY] Failed to load FFmpeg utilities'); window.FFmpegLoadErrors.push('util')"></script>
   <script src="js/version.js"></script>
   <script src="js/fft.js"></script>
   <script src="js/tempo-detector.js"></script>

@@ -20,3 +20,7 @@ Accumulated patterns from corrections and mistakes. Review at session start.
 
 ### Documentation Sync
 - For runtime behavior changes, update README + CHANGELOG + SECURITY + TESTING + manifest docs in the same patch.
+
+### Third-Party Libraries That Spawn Workers
+- A library loaded from a CDN that calls `new Worker(...)` with a URL relative to its own script will resolve to the CDN origin — and browsers reject cross-origin classic workers with a synchronous `SecurityError`. Vendor such wrappers same-origin (the worker chunk must sit in the same directory), even if the heavy assets (e.g. ffmpeg-core.wasm) stay on the CDN.
+- Verify "it loads from CDN fine" claims in a real browser: script tags loading successfully says nothing about worker spawning at runtime. A headless-Chromium E2E test (upload → results) catches this class of failure; syntax checks and smoke checks cannot.

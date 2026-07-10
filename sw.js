@@ -3,7 +3,7 @@
 try { importScripts('./js/version.js'); } catch (e) { /* version.js unavailable */ }
 const CACHE_NAME = (typeof APP_VERSION !== 'undefined' && APP_VERSION.cacheKey)
   ? APP_VERSION.cacheKey
-  : 'resourcery-v2.4.0';
+  : 'resourcery-v2.4.1';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -16,17 +16,19 @@ const STATIC_ASSETS = [
   './js/tempo-detector.js',
   './js/key-detector.js',
   './js/analysis-worker.js',
+  './js/vendor/ffmpeg.js',
+  './js/vendor/814.ffmpeg.js',
+  './js/vendor/ffmpeg-util.js',
   './manifest.json',
   './icons/reSOURCERY_optimized.svg',
   './VM-Logo-White.svg',
   './VA-Logo-White.svg'
 ];
 
-// External CDN resources
+// External CDN resources (the @ffmpeg/ffmpeg wrapper + util are vendored
+// same-origin in js/vendor/ — only the large core files stay on the CDN)
 const CDN_ASSETS = [
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@700;800;900&family=Reddit+Sans:wght@300;400;500;600;700&display=swap',
-  'https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js',
-  'https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js',
   'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
   'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
 ];
