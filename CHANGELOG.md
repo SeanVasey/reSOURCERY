@@ -5,11 +5,15 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.4.1] - 2026-07-10
 
 ### Fixed
+- **File upload and processing completely broken** — vendored the `@ffmpeg/ffmpeg` wrapper same-origin. The CDN-hosted `@ffmpeg/ffmpeg` 0.12.7 UMD wrapper spawns its internal class worker relative to its own script URL (`https://unpkg.com/.../814.ffmpeg.js`), and browsers reject cross-origin classic workers, so `ffmpeg.load()` threw `SecurityError: Failed to construct 'Worker'` on every attempt and no file or URL could ever be processed. The wrapper (`js/vendor/ffmpeg.js`, its worker chunk `js/vendor/814.ffmpeg.js`) and `@ffmpeg/util` (`js/vendor/ffmpeg-util.js`) are now served from the app's own origin, letting the worker resolve same-origin. The large `@ffmpeg/core` files (~31 MB) remain CDN-hosted and pre-fetched into blob URLs as before. Verified end-to-end in a real browser: WAV upload → extraction → tempo/key analysis → results; MP4 (video+audio) upload → audio extraction; MP3 conversion/download.
 - **FFmpeg media initialization**: The app no longer fetches or passes `ffmpeg-core.worker.js` for the default single-threaded `@ffmpeg/core` build, because that package does not ship a worker script. This prevents media handling from failing before processing starts or timing out while preparing the audio engine.
 - **Top safe-area scrim**: Page content no longer scrolls visibly into the iOS status bar / notch / Dynamic Island region. A fixed, pointer-transparent `.top-safe-scrim` layer replicates the page background stack — `--color-bg-primary` (the top stop of `--gradient-dark-vertical`), the animated ambient glow, and the noise texture — opaque through `env(safe-area-inset-top)` with a short (≤16px) masked fade below it, so the inset is indistinguishable from the page background at rest (the fade lets the hero glow bleed through without a clipped edge) and scrolling content blends out before reaching the status icons. The ambient gradient and noise texture were promoted to `:root` custom properties (`--gradient-ambient`, `--noise-texture`) so the scrim and page share one definition.
+
+### Changed
+- Service worker cache bumped to `resourcery-v2.4.1`; the vendored FFmpeg wrapper files are pre-cached as static assets, and only the `@ffmpeg/core` files and Google Fonts remain in the CDN cache list.
 
 ## [2.4.0] - 2026-02-27
 

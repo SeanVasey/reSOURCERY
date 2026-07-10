@@ -8,6 +8,14 @@
 - `js/analysis-worker.js`: Background tempo/key analysis worker.
 - `js/tempo-detector.js` / `js/key-detector.js` / `js/fft.js`: Audio analysis algorithms.
 
+## Vendored Third-Party Files (`js/vendor/`)
+UMD builds copied from npm (via unpkg), unmodified except that trailing `sourceMappingURL` comments were removed (the `.map` files are not vendored, and the dangling references would cause 404 warnings in browser devtools). The `@ffmpeg/ffmpeg` wrapper must be served same-origin because it spawns its class worker (`814.ffmpeg.js`) relative to its own script URL, and browsers reject cross-origin classic workers.
+- `js/vendor/ffmpeg.js`: `@ffmpeg/ffmpeg@0.12.7` `dist/umd/ffmpeg.js` (MIT).
+- `js/vendor/814.ffmpeg.js`: `@ffmpeg/ffmpeg@0.12.7` `dist/umd/814.ffmpeg.js` — worker chunk spawned by `ffmpeg.js`; must live in the same directory (MIT).
+- `js/vendor/ffmpeg-util.js`: `@ffmpeg/util@0.12.1` `dist/umd/index.js` (MIT).
+
+The large `@ffmpeg/core@0.12.6` files (`ffmpeg-core.js`, `ffmpeg-core.wasm`, ~31 MB) are **not** vendored; they are fetched from unpkg at runtime with progress tracking and loaded via blob URLs (see `js/audio-processor.js`).
+
 ## PWA and Runtime
 - `manifest.json`: Web app manifest.
 - `sw.js`: Service worker cache/runtime logic.

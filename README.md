@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.0-blue.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.1-blue.svg" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
   <a href="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml"><img src="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg" alt="Platform">
@@ -137,12 +137,13 @@ reSOURCERY/
 ├── vercel.json             # Vercel deployment headers, rewrites, and API support
 ├── api/
 │   └── fetch.js            # Hardened URL proxy endpoint for CORS fallback
-├── sw.js                   # Service worker (v2.4.0)
+├── sw.js                   # Service worker (v2.4.1)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
 │   └── styles.css          # Dark slate + indigo/cyan wizard theme
 ├── js/
 │   ├── version.js          # Centralized version config (APP_VERSION)
+│   ├── vendor/             # Vendored @ffmpeg/ffmpeg wrapper + util (must be same-origin)
 │   ├── app.js              # Main application (ReSOURCERYApp)
 │   ├── audio-processor.js  # FFmpeg.wasm integration
 │   ├── fft.js              # Optimized FFT (Cooley-Tukey)
@@ -185,6 +186,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.4.1   | 2026-07-10 | Fix broken upload/processing: vendor @ffmpeg/ffmpeg wrapper same-origin (cross-origin worker was rejected) |
 | 2.4.0   | 2026-02-27 | DNS rebinding mitigation, IPv6 fe80::/10 fix, CSP on proxy, streaming timeouts |
 | 2.3.1   | 2026-02-27 | SSRF hardening (IPv6, DNS resolution, redirect validation), streaming proxy responses |
 | 2.3.0   | 2026-02-22 | Safe area insets for curved screens, GitHub Pages deployment, CI enhancements |

@@ -20,7 +20,7 @@ reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and a
 ## Tech Stack
 
 - **Language**: Vanilla JavaScript (ES6+), no framework or bundler
-- **Media Processing**: FFmpeg.wasm 0.12.7 (loaded from unpkg CDN)
+- **Media Processing**: FFmpeg.wasm 0.12.7 — the `@ffmpeg/ffmpeg` wrapper + `@ffmpeg/util` are vendored same-origin in `js/vendor/` (required: the wrapper spawns a worker relative to its own script URL); the large `@ffmpeg/core` files load from unpkg CDN
 - **Audio Analysis**: Web Audio API, custom FFT (Cooley-Tukey), Web Workers
 - **PWA**: Service Worker (`sw.js`), Cross-Origin Isolation (`coi-serviceworker.js`)
 - **Styling**: Single CSS file (`css/styles.css`), dark theme, mobile-first
@@ -92,6 +92,7 @@ reSOURCERY/
 │
 ├── js/
 │   ├── version.js          → APP_VERSION config (update here for releases)
+│   ├── vendor/             → Vendored @ffmpeg/ffmpeg wrapper + worker chunk + @ffmpeg/util
 │   ├── app.js              → UI orchestration (ReSOURCERYApp class)
 │   ├── audio-processor.js  → FFmpeg integration (AudioProcessor class)
 │   ├── fft.js              → Cooley-Tukey FFT implementation
@@ -280,6 +281,7 @@ When updating the footer, ensure the version in `.footer-app-tag` stays in sync 
 
 ## Common Pitfalls
 
+- **FFmpeg wrapper must be same-origin**: `@ffmpeg/ffmpeg`'s UMD build spawns its class worker (`814.ffmpeg.js`) relative to its own script URL. Loading the wrapper from a CDN makes `new Worker(...)` throw a cross-origin `SecurityError` and breaks ALL processing. Keep `js/vendor/ffmpeg.js` and `js/vendor/814.ffmpeg.js` in the same same-origin directory.
 - **FFmpeg stall at 20-30%**: The default `@ffmpeg/core` package is single-threaded and does not ship `ffmpeg-core.worker.js`; only fetch/pass `workerURL` when intentionally switching to a multi-threaded core package that provides one.
 - **Sample rate 0**: If FFmpeg probe fails to parse audio metadata, `extractAudio` receives `sampleRate: 0`; the code defaults to 48000 Hz in this case
 - **CORS on URL fetch**: Cross-origin media URLs will fail unless the remote server sends CORS headers; the app falls back to the `/api/fetch` proxy
