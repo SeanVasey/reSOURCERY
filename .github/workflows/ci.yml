@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+  # Manual fallback: run CI from the Actions tab when event-triggered runs
+  # are unavailable (e.g. Actions paused or billing-limited)
+  workflow_dispatch:
 
 jobs:
   validate:
