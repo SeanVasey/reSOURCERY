@@ -22,6 +22,8 @@ class ReSOURCERYApp {
     this.currentResult = null;
     this.waveformData = [];
     this.audioObjectURL = null;
+    this.isConverting = false;
+    this.resizeTimer = null;
 
     // DOM Elements
     this.elements = {};
@@ -138,12 +140,18 @@ class ReSOURCERYApp {
   bindEvents() {
     // URL input
     this.elements.urlSubmitBtn.addEventListener('click', () => this.handleURLSubmit());
-    this.elements.urlInput.addEventListener('keypress', (e) => {
+    this.elements.urlInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.handleURLSubmit();
     });
 
     // File drop zone
     this.elements.dropZone.addEventListener('click', () => this.elements.fileInput.click());
+    this.elements.dropZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.elements.fileInput.click();
+      }
+    });
     this.elements.dropZone.addEventListener('dragover', (e) => this.handleDragOver(e));
     this.elements.dropZone.addEventListener('dragleave', (e) => this.handleDragLeave(e));
     this.elements.dropZone.addEventListener('drop', (e) => this.handleDrop(e));
@@ -190,6 +198,23 @@ class ReSOURCERYApp {
     this.elements.showWaveform.addEventListener('change', (e) => {
       this.settings.showWaveform = e.target.checked;
       this.saveSettings();
+    });
+
+    // Escape closes the settings panel
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !this.elements.settingsPanel.classList.contains('hidden')) {
+        this.toggleSettings(false);
+      }
+    });
+
+    // Redraw waveform when the viewport changes (resize / orientation)
+    window.addEventListener('resize', () => {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = setTimeout(() => {
+        if (!this.elements.resultsSection.classList.contains('hidden')) {
+          this.drawWaveform(this.getPlaybackProgress());
+        }
+      }, 150);
     });
 
     // Prevent default behaviors
@@ -489,9 +514,11 @@ class ReSOURCERYApp {
 
   /**
    * Draw waveform visualization
+   * @param {number} progress - Playback position 0..1; bars before it render brighter
    */
-  drawWaveform() {
+  drawWaveform(progress = 0) {
     const canvas = this.elements.waveformCanvas;
+    if (!canvas || !this.waveformData.length) return;
     const ctx = canvas.getContext('2d');
 
     // Set canvas size
@@ -509,19 +536,24 @@ class ReSOURCERYApp {
     // Draw waveform
     const barWidth = width / this.waveformData.length;
     const centerY = height / 2;
+    const playedBars = Math.floor(progress * this.waveformData.length);
 
-    // Create gradient
+    // Unplayed bars: dim gradient; played bars: bright cyan
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, 'rgba(34, 211, 238, 0.8)');
-    gradient.addColorStop(0.5, 'rgba(13, 148, 136, 0.6)');
-    gradient.addColorStop(1, 'rgba(34, 211, 238, 0.8)');
+    gradient.addColorStop(0, 'rgba(34, 211, 238, 0.35)');
+    gradient.addColorStop(0.5, 'rgba(13, 148, 136, 0.25)');
+    gradient.addColorStop(1, 'rgba(34, 211, 238, 0.35)');
 
-    ctx.fillStyle = gradient;
+    const playedGradient = ctx.createLinearGradient(0, 0, 0, height);
+    playedGradient.addColorStop(0, 'rgba(34, 211, 238, 0.95)');
+    playedGradient.addColorStop(0.5, 'rgba(45, 212, 191, 0.75)');
+    playedGradient.addColorStop(1, 'rgba(34, 211, 238, 0.95)');
 
     for (let i = 0; i < this.waveformData.length; i++) {
       const value = this.waveformData[i];
       const barHeight = value * height * 0.8;
 
+      ctx.fillStyle = i < playedBars ? playedGradient : gradient;
       ctx.fillRect(
         i * barWidth,
         centerY - barHeight / 2,
@@ -532,14 +564,31 @@ class ReSOURCERYApp {
   }
 
   /**
+   * Current playback position as a 0..1 fraction
+   */
+  getPlaybackProgress() {
+    const duration = this.audioElement.duration;
+    if (!duration || !isFinite(duration)) return 0;
+    return this.audioElement.currentTime / duration;
+  }
+
+  /**
    * Handle format selection
    */
   async handleFormatSelect(button) {
+    // Ignore clicks while a conversion is already running
+    if (this.isConverting) return;
+    this.isConverting = true;
+
     const format = button.dataset.format;
 
     // Update UI
-    this.elements.formatBtns.forEach(btn => btn.classList.remove('selected'));
+    this.elements.formatBtns.forEach(btn => {
+      btn.classList.remove('selected');
+      btn.disabled = true;
+    });
     button.classList.add('selected');
+    button.disabled = false;
 
     // Show download progress
     this.elements.downloadProgress.classList.remove('hidden');
@@ -580,6 +629,8 @@ class ReSOURCERYApp {
     } finally {
       // Restore the original progress callback
       this.processor.onProgress = originalOnProgress;
+      this.isConverting = false;
+      this.elements.formatBtns.forEach(btn => { btn.disabled = false; });
     }
   }
 
@@ -606,9 +657,14 @@ class ReSOURCERYApp {
       this.isPlaying = false;
       this.elements.playBtn.classList.remove('playing');
     } else {
-      this.audioElement.play();
       this.isPlaying = true;
       this.elements.playBtn.classList.add('playing');
+      this.audioElement.play().catch((error) => {
+        console.error('[reSOURCERY] Playback failed:', error);
+        this.isPlaying = false;
+        this.elements.playBtn.classList.remove('playing');
+        this.showToast('Playback failed. Please try again.', 'error');
+      });
     }
   }
 
@@ -616,8 +672,13 @@ class ReSOURCERYApp {
    * Handle seek
    */
   handleSeek(e) {
+    const duration = this.audioElement.duration;
+    if (!duration || !isFinite(duration)) return;
     const percent = e.target.value / 100;
-    this.audioElement.currentTime = percent * this.audioElement.duration;
+    this.audioElement.currentTime = percent * duration;
+    if (this.settings.showWaveform) {
+      this.drawWaveform(percent);
+    }
   }
 
   /**
@@ -628,7 +689,12 @@ class ReSOURCERYApp {
     const duration = this.audioElement.duration;
 
     this.elements.currentTime.textContent = this.formatTime(current);
-    this.elements.seekBar.value = (current / duration) * 100;
+    if (duration && isFinite(duration)) {
+      this.elements.seekBar.value = (current / duration) * 100;
+      if (this.settings.showWaveform) {
+        this.drawWaveform(current / duration);
+      }
+    }
   }
 
   /**
@@ -645,6 +711,9 @@ class ReSOURCERYApp {
     this.isPlaying = false;
     this.elements.playBtn.classList.remove('playing');
     this.elements.seekBar.value = 0;
+    if (this.settings.showWaveform) {
+      this.drawWaveform(0);
+    }
   }
 
   /**
@@ -906,11 +975,12 @@ class ReSOURCERYApp {
 
     this.elements.toastContainer.appendChild(toast);
 
-    // Remove after delay
+    // Remove after delay — errors linger longer so they can be read
+    const duration = type === 'error' ? 5000 : 3000;
     setTimeout(() => {
       toast.classList.add('toast-out');
       setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, duration);
   }
 
   /**

@@ -5,6 +5,24 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.2] - 2026-07-12
+
+### Added
+- **Waveform playback progress**: the results waveform now renders the played portion in bright cyan with the remainder dimmed, updating live during playback and when seeking, and resetting when playback ends.
+- **Keyboard accessibility**: the drop zone is focusable (`role="button"`, `tabindex="0"`) and opens the file browser on Enter/Space; Escape closes the settings panel; all interactive controls (drop zone, format buttons, play button, seek bar, URL submit, cancel/close buttons) show a visible `:focus-visible` outline.
+- **Screen reader support**: toast notifications are announced via `role="status"`/`aria-live="polite"`; the cancel-processing and close-settings icon buttons have `aria-label`s.
+
+### Fixed
+- **Concurrent conversion guard**: clicking a second download format (or double-clicking) while a conversion is running is now ignored; the other format buttons are visibly disabled until the conversion finishes.
+- **Waveform resize**: the waveform canvas redraws on window resize/orientation change instead of stretching and blurring.
+- **Seek before metadata**: seeking or time updates before audio metadata loads no longer produce `NaN` seek-bar values or invalid `currentTime` assignments.
+- **Playback errors**: `audio.play()` rejections (e.g. decode/autoplay failures) are caught, the play button state is reverted, and an error toast is shown instead of a stuck "playing" UI.
+- **Deprecated event**: URL input now uses `keydown` instead of the deprecated `keypress` event.
+
+### Changed
+- Error toasts stay visible for 5 seconds (info/success remain 3 seconds) so failure messages can actually be read.
+- Service worker cache bumped to `resourcery-v2.4.2`.
+
 ## [2.4.1] - 2026-07-10
 
 ### Fixed
