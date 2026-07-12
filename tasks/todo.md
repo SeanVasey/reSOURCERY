@@ -2,7 +2,19 @@
 
 Active task tracking for Claude Code sessions.
 
-## Current Session (2026-07-10)
+## Current Session (2026-07-12)
+
+- [x] Survey app.js / index.html / styles.css for small functionality & design gaps
+- [x] Waveform: live playback progress rendering + redraw on resize/orientation change
+- [x] Keyboard a11y: focusable drop zone (Enter/Space), Escape closes settings, `:focus-visible` outlines
+- [x] Screen readers: aria-live toast container, aria-labels on icon-only buttons
+- [x] Guard concurrent format conversions (disable other format buttons while converting)
+- [x] Playback robustness: NaN seek-bar guard pre-metadata, `play()` rejection handling
+- [x] Error toasts linger 5s; URL input keypress → keydown
+- [x] Bump to v2.4.2 (version.js, sw.js fallback, index.html, README, CHANGELOG)
+- [x] Verify: syntax + baseline + version checks; headless-Chromium E2E (upload → results → playback → seek → MP3 download, waveform-progress pixel assert, conversion-guard assert)
+
+## Session (2026-07-10)
 
 - [x] Reproduce report: file upload / processing fails on every attempt
 - [x] Root-cause: CDN-hosted @ffmpeg/ffmpeg wrapper spawns cross-origin class worker (814.ffmpeg.js) → SecurityError in ffmpeg.load()

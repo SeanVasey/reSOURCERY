@@ -50,7 +50,7 @@
       <div class="brand-row">
         <img class="app-logo" src="icons/reSOURCERY_optimized.svg" alt="reSOURCERY" />
         <h1 class="app-title">reSOURCERY</h1>
-        <span class="version-badge" id="versionBadge">v2.4.1</span>
+        <span class="version-badge" id="versionBadge">v2.4.2</span>
       </div>
 
       <!-- Subtitle -->
@@ -84,7 +84,7 @@
         </div>
 
         <!-- Drop Zone -->
-        <div class="drop-zone glass-panel" id="dropZone">
+        <div class="drop-zone glass-panel" id="dropZone" role="button" tabindex="0" aria-label="Upload media file — drag and drop, or press Enter to browse">
           <div class="drop-zone-content">
             <div class="drop-icon-container">
               <svg class="drop-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -116,7 +116,7 @@
         <div class="glass-panel processing-panel">
           <div class="processing-header">
             <h3 class="processing-title">ANALYZING MEDIA</h3>
-            <button class="cancel-btn" id="cancelBtn">
+            <button class="cancel-btn" id="cancelBtn" aria-label="Cancel processing">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -397,7 +397,7 @@
         </a>
       </div>
       <div class="footer-suite-tag">A VASEY/AI Production</div>
-      <div class="footer-app-tag">reSOURCERY v2.4.1 &middot; Audio Extraction Studio</div>
+      <div class="footer-app-tag">reSOURCERY v2.4.2 &middot; Audio Extraction Studio</div>
       <div class="footer-copyright">
         &copy; 2026 <a href="https://vaseymultimedia.com" target="_blank" rel="noopener">VASEY Multimedia</a>. All rights reserved.<br>
         Designed &amp; engineered by <a href="https://vasey.ai" target="_blank" rel="noopener">VASEY/AI</a>
@@ -410,7 +410,7 @@
       <div class="settings-content glass-panel">
         <div class="settings-header">
           <h3 class="settings-title">SETTINGS</h3>
-          <button class="settings-close" id="settingsClose">
+          <button class="settings-close" id="settingsClose" aria-label="Close settings">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -441,13 +441,13 @@
           </div>
         </div>
         <div class="settings-footer">
-          <span class="version-text" id="settingsVersion">v2.4.1</span>
+          <span class="version-text" id="settingsVersion">v2.4.2</span>
         </div>
       </div>
     </div>
 
     <!-- Toast Notifications -->
-    <div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite"></div>
   </div>
 
   <!-- Top safe-area scrim: masks content scrolling under the iOS status bar / Dynamic Island -->

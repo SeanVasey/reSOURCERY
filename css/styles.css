@@ -1881,6 +1881,27 @@ body::before {
   }
 }
 
+/* Keyboard focus visibility */
+.drop-zone:focus-visible,
+.format-btn:focus-visible,
+.play-btn:focus-visible,
+.url-submit-btn:focus-visible,
+.new-extract-btn:focus-visible,
+.cancel-btn:focus-visible,
+.settings-close:focus-visible,
+.floating-menu-btn:focus-visible,
+.seek-bar:focus-visible {
+  outline: 2px solid var(--cyan-400);
+  outline-offset: 3px;
+}
+
+/* Format buttons locked while a conversion runs */
+.format-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Dark mode forced for consistency */
 @media (prefers-color-scheme: light) {
   :root {
