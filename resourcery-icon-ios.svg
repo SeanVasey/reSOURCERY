@@ -16,9 +16,14 @@
     <filter id="glowblur" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="14"/>
     </filter>
-  <linearGradient id="fb_border" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7597ff"/><stop offset=".45" stop-color="#5f86ff"/><stop offset="1" stop-color="#4866c2"/></linearGradient></defs>
-<!-- Full-bleed border plate: opaque edge-to-edge; iOS applies its own squircle mask, so light/dark mode never shows through -->
-<rect x="0" y="0" width="1024" height="1024" fill="url(#fb_border)"/>
+  </defs>
+<!-- Full-bleed border plate: opaque edge-to-edge in a single uniform brand blue.
+     A previous vertical gradient went pale (#7597ff) at the top, so once iOS
+     masked the square into its squircle the anti-aliased top corners read as a
+     whitish, uneven rim. A flat color makes the masked border one clean, even
+     "pure" color all the way around. iOS applies its own mask, so light/dark
+     mode never shows through the corners. -->
+<rect x="0" y="0" width="1024" height="1024" fill="#5f86ff"/>
 
   
   <!-- 2-4. Body + sheen + mark (clipped to body) -->
