@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.2-blue.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.3-blue.svg" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
   <a href="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml"><img src="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg" alt="Platform">
@@ -137,7 +137,7 @@ reSOURCERY/
 ├── vercel.json             # Vercel deployment headers, rewrites, and API support
 ├── api/
 │   └── fetch.js            # Hardened URL proxy endpoint for CORS fallback
-├── sw.js                   # Service worker (v2.4.2)
+├── sw.js                   # Service worker (v2.4.3)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
 │   └── styles.css          # Dark slate + indigo/cyan wizard theme
@@ -150,8 +150,14 @@ reSOURCERY/
 │   ├── tempo-detector.js   # BPM detection
 │   ├── key-detector.js     # Key detection (Krumhansl-Schmuckler)
 │   └── analysis-worker.js  # Web Worker for background analysis
+├── resourcery-icon-ios.svg # Branded app icon (opaque, iOS Home Screen / favicon / PWA source)
+├── favicon.ico             # Multi-size favicon (16/32/48)
 ├── icons/
-│   └── reSOURCERY_optimized.svg  # Wizard logo + music note
+│   ├── reSOURCERY_optimized.svg  # Transparent wizard logo (in-app header)
+│   ├── apple-touch-icon.png      # iOS Home Screen icon (180×180)
+│   ├── favicon-16.png / favicon-32.png
+│   ├── icon-192.png / icon-512.png   # PWA install icons
+│   └── icon-maskable-512.png         # Android maskable icon
 ├── docs/
 │   └── MANIFEST.md         # Artifact and generated file descriptions
 ├── tasks/
@@ -186,6 +192,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.4.3   | 2026-07-16 | Branded iOS Home Screen / PWA icon (`resourcery-icon-ios.svg`); PNG favicon + Apple touch + maskable set; fix iOS ignoring the SVG apple-touch-icon |
 | 2.4.2   | 2026-07-12 | Waveform playback progress, keyboard accessibility (focusable drop zone, Escape, focus outlines), conversion re-entry guard, playback/seek robustness fixes |
 | 2.4.1   | 2026-07-10 | Fix broken upload/processing: vendor @ffmpeg/ffmpeg wrapper same-origin (cross-origin worker was rejected) |
 | 2.4.0   | 2026-02-27 | DNS rebinding mitigation, IPv6 fe80::/10 fix, CSP on proxy, streaming timeouts |

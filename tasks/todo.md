@@ -2,6 +2,17 @@
 
 Active task tracking for Claude Code sessions.
 
+## Session (2026-07-16) — Branded iOS / PWA icon
+
+- [x] Pull new `resourcery-icon-ios.svg` (opaque app mark) from main; confirm it matches the transparent `reSOURCERY_optimized.svg` artwork
+- [x] Generate raster icon set via CairoSVG: `apple-touch-icon.png` (180), `icon-192/512.png`, `icon-maskable-512.png`, `favicon-16/32.png`, `favicon.ico` (16/32/48)
+- [x] index.html: apple-touch-icon → 180×180 PNG (iOS ignores SVG); favicon → branded SVG + PNG + ICO fallbacks
+- [x] manifest.json: PNG icons (192/512 + maskable) + scalable SVG `any`; shortcut icon → PNG
+- [x] sw.js: precache new icon assets; bump fallback cache to `resourcery-v2.4.3`
+- [x] Keep transparent `reSOURCERY_optimized.svg` as the in-app header logo (transparent bg ideal there)
+- [x] Bump to v2.4.3 (version.js, sw.js, index.html/README, CHANGELOG); update docs/MANIFEST.md + README tree
+- [x] Verify: syntax + baseline + version consistency; spot-check rendered PNGs
+
 ## Current Session (2026-07-12)
 
 - [x] Survey app.js / index.html / styles.css for small functionality & design gaps

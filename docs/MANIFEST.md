@@ -21,6 +21,17 @@ The large `@ffmpeg/core@0.12.6` files (`ffmpeg-core.js`, `ffmpeg-core.wasm`, ~31
 - `sw.js`: Service worker cache/runtime logic.
 - `coi-serviceworker.js`: Cross-origin isolation support.
 
+## Icons and Branding
+- `resourcery-icon-ios.svg`: Source app icon — the branded wizard mark on an **opaque** rounded-rect background. Used for the favicon and PWA manifest, and as the source for all generated raster icons. Ideal wherever the icon must render on its own (iOS Home Screen, install tiles).
+- `icons/reSOURCERY_optimized.svg`: **Transparent-background** variant of the same artwork. Used as the in-app header logo, where it sits on the app's dark background.
+- Generated PNGs (produced from `resourcery-icon-ios.svg`; regenerate with a faithful SVG rasterizer such as CairoSVG, or the browser-based `generate-icons.html`):
+  - `icons/apple-touch-icon.png` (180×180) — iOS Home Screen icon. iOS ignores SVG `apple-touch-icon`s, so a PNG is required.
+  - `icons/icon-192.png`, `icons/icon-512.png` — PWA install icons (`purpose: any`).
+  - `icons/icon-maskable-512.png` — Android maskable icon (`purpose: maskable`); the opaque background fills the platform safe-zone crop.
+  - `icons/favicon-16.png`, `icons/favicon-32.png` — PNG favicon fallbacks.
+  - `favicon.ico` — multi-resolution favicon (16/32/48) for legacy browsers.
+- `VM-Logo-White.svg` / `VA-Logo-White.svg`: Vasey Multimedia and VASEY/AI brand monograms used in the footer.
+
 ## Deployment
 - `vercel.json`: Vercel deployment headers (COOP/COEP), cache config, API-aware rewrites.
 - `api/fetch.js`: Hardened URL proxy for CORS-restricted media hosts (Vercel serverless function).
