@@ -144,8 +144,10 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => {
-        // Fallback to cache
-        return caches.match(request).then(cachedResponse => {
+        // Fallback to cache. ignoreSearch so cache-busted asset URLs (e.g. the
+        // favicon links carry ?v=2) still match their query-less precached entry
+        // when offline — and so the bare-referenced manifest SVG matches too.
+        return caches.match(request, { ignoreSearch: true }).then(cachedResponse => {
           if (cachedResponse) {
             return cachedResponse;
           }

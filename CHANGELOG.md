@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Corrected icon didn't reach devices that had already cached the old one.** The v2.4.5 border fix was live on the server, but Safari/iOS kept serving a previously cached `apple-touch-icon.png` (cached under the old 7-day `max-age` before v2.4.6 shortened it), so even removing and re-adding the Home Screen icon showed the old artwork. The service worker is network-first and doesn't cover the OS-level webclip icon fetch, so it couldn't help here either.
   - **iOS icon:** renamed `icons/apple-touch-icon.png` → `icons/apple-touch-icon-v2.png`. A brand-new URL cannot be served from the stale cache, so re-adding to the Home Screen now fetches the corrected icon. (A query string alone is unreliable for iOS webclips; a real filename change is not.)
   - **Browser favicons:** added `?v=2` to the favicon `<link>`s (`resourcery-icon-ios.svg`, `favicon-16/32.png`, `favicon.ico`) so browsers holding the old-gradient favicon re-fetch the corrected one.
+  - The service worker's offline cache fallback now matches with `ignoreSearch: true`, so these `?v=2` requests (and the bare-referenced manifest SVG) still resolve to their precached entries offline instead of failing.
 - Service worker precache and version bumped to `resourcery-v2.4.7`.
 
 ### Notes
