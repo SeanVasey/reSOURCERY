@@ -3,7 +3,7 @@
 try { importScripts('./js/version.js'); } catch (e) { /* version.js unavailable */ }
 const CACHE_NAME = (typeof APP_VERSION !== 'undefined' && APP_VERSION.cacheKey)
   ? APP_VERSION.cacheKey
-  : 'resourcery-v2.4.2';
+  : 'resourcery-v2.4.3';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -20,7 +20,15 @@ const STATIC_ASSETS = [
   './js/vendor/814.ffmpeg.js',
   './js/vendor/ffmpeg-util.js',
   './manifest.json',
+  './resourcery-icon-ios.svg',
   './icons/reSOURCERY_optimized.svg',
+  './icons/apple-touch-icon.png',
+  './icons/favicon-16.png',
+  './icons/favicon-32.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
+  './favicon.ico',
   './VM-Logo-White.svg',
   './VA-Logo-White.svg'
 ];

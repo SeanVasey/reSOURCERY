@@ -5,6 +5,19 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.3] - 2026-07-16
+
+### Added
+- **Branded iOS Home Screen / PWA icon**: adopted the new `resourcery-icon-ios.svg` app mark (opaque rounded-rect wizard) for the favicon, Apple touch icon, and PWA manifest. Generated the raster set required by iOS/Android install flows — `icons/apple-touch-icon.png` (180×180), `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png`, `icons/favicon-16.png`, `icons/favicon-32.png`, and a multi-size `favicon.ico` (16/32/48).
+
+### Fixed
+- **iOS "Add to Home Screen" showed no custom icon**: `apple-touch-icon` previously pointed at an SVG, which iOS ignores. It now references a 180×180 PNG so the wizard mark renders correctly on the Home Screen.
+
+### Changed
+- Favicon now serves the branded SVG to modern browsers with PNG + `favicon.ico` fallbacks; the transparent `icons/reSOURCERY_optimized.svg` remains the in-app header logo (where a transparent background is ideal).
+- PWA manifest icons switched from a single SVG to PNG entries (192/512 + a dedicated maskable 512) plus a scalable SVG `any` entry.
+- Service worker cache bumped to `resourcery-v2.4.3`; new icon assets added to the precache list.
+
 ## [2.4.2] - 2026-07-12
 
 ### Added

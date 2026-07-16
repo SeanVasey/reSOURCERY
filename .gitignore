@@ -34,5 +34,9 @@ build/
 .env.local
 .env.*.local
 
-# Generated icons (kept as needed, ignored if regenerated)
+# Generated icons — ad-hoc sizes from generate-icons.html are ignored,
+# but the manifest / service-worker icons below are shipped and tracked.
 icons/icon-*.png
+!icons/icon-192.png
+!icons/icon-512.png
+!icons/icon-maskable-512.png
