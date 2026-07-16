@@ -5,6 +5,12 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.5] - 2026-07-16
+
+### Fixed
+- **iOS Home Screen icon showed a white / uneven fringe on the rounded corners.** The full-bleed border plate used a vertical gradient that went pale (`#7597ff`) at the top. When iOS masks the square icon into its squircle, the anti-aliased top corners of that pale edge read as a whitish, uneven rim against the wallpaper. The plate is now a single **uniform brand blue** (`#5f86ff`, matching the icon's inner glow), so the masked border is one clean, even "pure" color all the way around. Regenerated the full raster set (`apple-touch-icon`, `icon-192/512`, `icon-maskable-512`, `favicon-16/32`, `favicon.ico`) from the corrected source; all icons remain fully opaque. Verified by simulating iOS's superellipse squircle mask over the icon on a dark background — the rim is uniform with no white pixels.
+- Service worker cache bumped to `resourcery-v2.4.5` so returning users receive the corrected icon instead of the cached v2.4.4 artwork.
+
 ## [2.4.4] - 2026-07-16
 
 ### Changed

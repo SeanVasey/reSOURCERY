@@ -2,6 +2,16 @@
 
 Active task tracking for Claude Code sessions.
 
+## Session (2026-07-16) — Fix white/uneven fringe on iOS Home Screen icon
+
+- [x] Diagnose from user's Home Screen screenshot: white/uneven rim on the squircle corners
+- [x] Root-cause via pixel inspection: full-bleed plate gradient went pale (#7597ff, 117,151,255) at the top; iOS squircle-mask AA of that pale edge over dark wallpaper reads as a whitish, uneven rim
+- [x] Fix: replace the `fb_border` gradient with a uniform brand blue (#5f86ff) so the masked border is one clean, even color
+- [x] Regenerate the full raster set + favicon.ico from the corrected SVG (all fully opaque; 4 corners + top edge now identical #5f86ff)
+- [x] Verify by simulating iOS's superellipse (n=5) squircle mask over the icon on a dark background — rim uniform, zero white pixels
+- [x] Bump to v2.4.5 (version.js, sw.js, index.html ×3, README, CHANGELOG) so SW re-serves the corrected icon
+- [x] Verify: syntax + baseline + version consistency
+
 ## Session (2026-07-16) — Refresh iOS / PWA icon (full-bleed opaque plate)
 
 - [x] Pull updated `resourcery-icon-ios.svg` from main (outer glow ring → opaque full-bleed border plate; iOS applies its own squircle mask)
