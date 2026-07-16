@@ -53,20 +53,23 @@
     }
 
     async function renderIcon(img, { size, supersample }) {
-      // The source is already opaque and full-bleed; supersample tiny favicons
-      // for crisper downscaling, then draw onto an opaque canvas.
-      const scale = supersample ? 4 : 1;
-      const big = document.createElement('canvas');
-      big.width = big.height = size * scale;
-      const bctx = big.getContext('2d');
-      bctx.drawImage(img, 0, 0, big.width, big.height);
-
+      // The source is already opaque and full-bleed. Draw it straight onto the
+      // target canvas; only tiny favicons supersample (render 4x, then
+      // downscale) for crisper edges.
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = size;
       const ctx = canvas.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(big, 0, 0, size, size);
+
+      if (supersample) {
+        const big = document.createElement('canvas');
+        big.width = big.height = size * 4;
+        big.getContext('2d').drawImage(img, 0, 0, big.width, big.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(big, 0, 0, size, size);
+      } else {
+        ctx.drawImage(img, 0, 0, size, size);
+      }
 
       const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
       return { blob, canvas };
@@ -85,20 +88,22 @@
         const div = document.createElement('div');
         div.className = 'icon-item';
 
-        const display = canvas.cloneNode();
-        display.getContext('2d').drawImage(canvas, 0, 0);
-        display.style.width = display.style.height = Math.min(target.size, 128) + 'px';
+        // The render canvas isn't reused, so append it directly (no clone).
+        canvas.style.width = canvas.style.height = Math.min(target.size, 128) + 'px';
 
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
+        link.href = url;
         link.download = target.name;
         link.textContent = 'Download ' + target.name;
 
-        div.appendChild(display);
+        div.appendChild(canvas);
         div.appendChild(document.createElement('br'));
         div.appendChild(link);
         container.appendChild(div);
         link.click();
+        // Revoke after the download starts so we don't leak object URLs on re-runs.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     }
   </script>
