@@ -2,6 +2,17 @@
 
 Active task tracking for Claude Code sessions.
 
+## Session (2026-07-16) — Refresh iOS / PWA icon (full-bleed opaque plate)
+
+- [x] Pull updated `resourcery-icon-ios.svg` from main (outer glow ring → opaque full-bleed border plate; iOS applies its own squircle mask)
+- [x] Regenerate raster set from the new SVG (resvg): `apple-touch-icon.png` (180), `icon-192/512.png`, `icon-maskable-512.png`, `favicon-16/32.png`, `favicon.ico` (16/32/48) — all fully opaque, no alpha
+- [x] Verify references already point correctly (index.html favicon/apple-touch, manifest.json icons, sw.js precache); no ref changes needed
+- [x] Keep transparent `icons/reSOURCERY_optimized.svg` as the in-app header logo
+- [x] Rewrite stale `generate-icons.html` to regenerate the correct set from `resourcery-icon-ios.svg`
+- [x] Bump to v2.4.4 (version.js, sw.js fallback, index.html ×3, README badge/tree/table, CHANGELOG) so SW re-caches new icons
+- [x] Update docs/MANIFEST.md (full-bleed description, generator entry)
+- [x] Verify: syntax + baseline + version consistency; spot-check rendered PNGs + corner opacity
+
 ## Session (2026-07-16) — Branded iOS / PWA icon
 
 - [x] Pull new `resourcery-icon-ios.svg` (opaque app mark) from main; confirm it matches the transparent `reSOURCERY_optimized.svg` artwork

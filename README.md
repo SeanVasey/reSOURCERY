@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.3-blue.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.4-blue.svg" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
   <a href="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml"><img src="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg" alt="Platform">
@@ -137,7 +137,7 @@ reSOURCERY/
 ├── vercel.json             # Vercel deployment headers, rewrites, and API support
 ├── api/
 │   └── fetch.js            # Hardened URL proxy endpoint for CORS fallback
-├── sw.js                   # Service worker (v2.4.3)
+├── sw.js                   # Service worker (v2.4.4)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
 │   └── styles.css          # Dark slate + indigo/cyan wizard theme
@@ -192,6 +192,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.4.4   | 2026-07-16 | Refresh iOS/PWA app icon: full-bleed opaque plate (edge-to-edge, iOS applies its own squircle mask); regenerate the raster icon set + `favicon.ico` from the updated `resourcery-icon-ios.svg` |
 | 2.4.3   | 2026-07-16 | Branded iOS Home Screen / PWA icon (`resourcery-icon-ios.svg`); PNG favicon + Apple touch + maskable set; fix iOS ignoring the SVG apple-touch-icon |
 | 2.4.2   | 2026-07-12 | Waveform playback progress, keyboard accessibility (focusable drop zone, Escape, focus outlines), conversion re-entry guard, playback/seek robustness fixes |
 | 2.4.1   | 2026-07-10 | Fix broken upload/processing: vendor @ffmpeg/ffmpeg wrapper same-origin (cross-origin worker was rejected) |

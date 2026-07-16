@@ -5,6 +5,17 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.4] - 2026-07-16
+
+### Changed
+- **Refreshed iOS / PWA app icon artwork**: `resourcery-icon-ios.svg` now paints an **opaque full-bleed border plate** edge-to-edge instead of an outer glow ring on transparent corners. iOS applies its own squircle mask to the square, so the Home Screen icon never shows light/dark mode bleeding through the corners, and Android maskable crops stay filled.
+- **Regenerated the entire raster icon set** from the updated source so every install surface matches the new artwork: `icons/apple-touch-icon.png` (180×180), `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png`, `icons/favicon-16.png`, `icons/favicon-32.png`, and the multi-resolution `favicon.ico` (16/32/48). All raster icons are fully opaque (no alpha) so no background shows through.
+- Service worker cache bumped to `resourcery-v2.4.4` so returning users receive the new precached icon assets instead of stale cached versions.
+- Rewrote `generate-icons.html` to regenerate the correct icon set (right sizes and filenames) from `resourcery-icon-ios.svg` rather than the transparent header logo.
+
+### Notes
+- The transparent `icons/reSOURCERY_optimized.svg` remains the in-app header logo, where a transparent background is ideal. Only the standalone app-icon surfaces (favicon, Apple touch, PWA/Home Screen install) use the opaque `resourcery-icon-ios.svg`.
+
 ## [2.4.3] - 2026-07-16
 
 ### Added

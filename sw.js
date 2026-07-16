@@ -3,7 +3,7 @@
 try { importScripts('./js/version.js'); } catch (e) { /* version.js unavailable */ }
 const CACHE_NAME = (typeof APP_VERSION !== 'undefined' && APP_VERSION.cacheKey)
   ? APP_VERSION.cacheKey
-  : 'resourcery-v2.4.3';
+  : 'resourcery-v2.4.4';
 const STATIC_ASSETS = [
   './',
   './index.html',
