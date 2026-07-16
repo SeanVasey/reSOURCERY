@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.5-blue.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.6-blue.svg" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
   <a href="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml"><img src="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg" alt="Platform">
@@ -137,7 +137,7 @@ reSOURCERY/
 ├── vercel.json             # Vercel deployment headers, rewrites, and API support
 ├── api/
 │   └── fetch.js            # Hardened URL proxy endpoint for CORS fallback
-├── sw.js                   # Service worker (v2.4.5)
+├── sw.js                   # Service worker (v2.4.6)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
 │   └── styles.css          # Dark slate + indigo/cyan wizard theme
@@ -192,6 +192,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.4.6   | 2026-07-16 | Faster icon-update propagation: `/icons/*`, `favicon.ico`, and the SVG icon now use `max-age=86400, stale-while-revalidate`; audited that every favicon/PWA/iOS raster derives from the full-bleed `resourcery-icon-ios.svg` |
 | 2.4.5   | 2026-07-16 | Fix white/uneven fringe on the iOS Home Screen icon: the full-bleed plate's pale-topped gradient read as a whitish rim once iOS masked its squircle — replaced with a uniform brand blue so the border is one clean color; regenerated the raster set |
 | 2.4.4   | 2026-07-16 | Refresh iOS/PWA app icon: full-bleed opaque plate (edge-to-edge, iOS applies its own squircle mask); regenerate the raster icon set + `favicon.ico` from the updated `resourcery-icon-ios.svg` |
 | 2.4.3   | 2026-07-16 | Branded iOS Home Screen / PWA icon (`resourcery-icon-ios.svg`); PNG favicon + Apple touch + maskable set; fix iOS ignoring the SVG apple-touch-icon |

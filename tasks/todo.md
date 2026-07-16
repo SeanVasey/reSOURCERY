@@ -2,6 +2,14 @@
 
 Active task tracking for Claude Code sessions.
 
+## Session (2026-07-16) — Icon cache propagation + full-bleed source audit
+
+- [x] Confirm the v2.4.5 fix is actually live on production (resourcery.vercel.app icon byte-identical to local, corners #5f86ff) — "still same" was device/HTTP caching
+- [x] Audit: regenerate all icons from resourcery-icon-ios.svg → zero diff vs committed (all derive from the full-bleed source); every raster opaque with uniform #5f86ff border; favicon.ico = 3 PNG entries
+- [x] Confirm references: apple-touch-icon / favicon SVG+PNG+ICO / manifest icons all → full-bleed source; in-app header logo → transparent reSOURCERY_optimized.svg
+- [x] vercel.json: `/icons/*` 7-day hard cache → `max-age=86400, stale-while-revalidate=604800`; add same header for root favicon.ico + resourcery-icon-ios.svg
+- [x] Bump to v2.4.6; update CHANGELOG/README/index; verify syntax + version consistency + JSON valid
+
 ## Session (2026-07-16) — Fix white/uneven fringe on iOS Home Screen icon
 
 - [x] Diagnose from user's Home Screen screenshot: white/uneven rim on the squircle corners

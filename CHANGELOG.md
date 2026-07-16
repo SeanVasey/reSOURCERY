@@ -5,6 +5,14 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.6] - 2026-07-16
+
+### Changed
+- **Icon assets now propagate faster when they change.** `/icons/*` previously used `Cache-Control: public, max-age=604800` (a hard 7-day cache with no revalidation), so an updated favicon/PWA icon could take up to a week to reach returning browsers. It now uses `public, max-age=86400, stale-while-revalidate=604800` — fresh for a day, then served stale-while-revalidating for up to a week — matching the JS/CSS caching convention. Added the same header for the root `favicon.ico` and `resourcery-icon-ios.svg`, which previously fell back to Vercel's default caching. (Note: this only affects browser/HTTP caching; iOS Home Screen webclip icons are cached by the OS and are not governed by HTTP headers — evicting those still requires removing and re-adding the icon.)
+
+### Verified
+- Audited every icon surface: all favicon, PWA, and iOS Home Screen rasters (`apple-touch-icon.png`, `icon-192/512.png`, `icon-maskable-512.png`, `favicon-16/32.png`, `favicon.ico`) are byte-for-byte reproducible from the full-bleed `resourcery-icon-ios.svg`, are fully opaque, and carry the uniform `#5f86ff` border. The in-app header logo remains the transparent `icons/reSOURCERY_optimized.svg`.
+
 ## [2.4.5] - 2026-07-16
 
 ### Fixed
