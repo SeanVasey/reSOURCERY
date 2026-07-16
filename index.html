@@ -11,8 +11,10 @@
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
-  <!-- iOS Home Screen icon (must be a PNG; iOS ignores SVG apple-touch-icons) -->
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <!-- iOS Home Screen icon (must be a PNG; iOS ignores SVG apple-touch-icons).
+       Filename is versioned (-v2) to force Safari/iOS past a previously cached
+       copy of the old icon — a query string alone is unreliable for webclips. -->
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-v2.png">
   <!-- No apple-touch-startup-image: since iOS 11.3+ the splash screen is
        generated from the manifest (background_color, name, icons). -->
 
@@ -24,11 +26,12 @@
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css">
 
-  <!-- Favicon (branded iOS icon; SVG for modern browsers, PNG + ICO fallbacks) -->
-  <link rel="icon" type="image/svg+xml" href="resourcery-icon-ios.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
-  <link rel="shortcut icon" href="favicon.ico">
+  <!-- Favicon (branded iOS icon; SVG for modern browsers, PNG + ICO fallbacks).
+       ?v=2 busts browsers holding a previously cached (old-gradient) favicon. -->
+  <link rel="icon" type="image/svg+xml" href="resourcery-icon-ios.svg?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png?v=2">
+  <link rel="shortcut icon" href="favicon.ico?v=2">
 
   <title>reSOURCERY</title>
 </head>
@@ -53,7 +56,7 @@
       <div class="brand-row">
         <img class="app-logo" src="icons/reSOURCERY_optimized.svg" alt="reSOURCERY" />
         <h1 class="app-title">reSOURCERY</h1>
-        <span class="version-badge" id="versionBadge">v2.4.6</span>
+        <span class="version-badge" id="versionBadge">v2.4.7</span>
       </div>
 
       <!-- Subtitle -->
@@ -400,7 +403,7 @@
         </a>
       </div>
       <div class="footer-suite-tag">A VASEY/AI Production</div>
-      <div class="footer-app-tag">reSOURCERY v2.4.6 &middot; Audio Extraction Studio</div>
+      <div class="footer-app-tag">reSOURCERY v2.4.7 &middot; Audio Extraction Studio</div>
       <div class="footer-copyright">
         &copy; 2026 <a href="https://vaseymultimedia.com" target="_blank" rel="noopener">VASEY Multimedia</a>. All rights reserved.<br>
         Designed &amp; engineered by <a href="https://vasey.ai" target="_blank" rel="noopener">VASEY/AI</a>
@@ -444,7 +447,7 @@
           </div>
         </div>
         <div class="settings-footer">
-          <span class="version-text" id="settingsVersion">v2.4.6</span>
+          <span class="version-text" id="settingsVersion">v2.4.7</span>
         </div>
       </div>
     </div>

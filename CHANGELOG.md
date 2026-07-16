@@ -5,6 +5,17 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.7] - 2026-07-16
+
+### Fixed
+- **Corrected icon didn't reach devices that had already cached the old one.** The v2.4.5 border fix was live on the server, but Safari/iOS kept serving a previously cached `apple-touch-icon.png` (cached under the old 7-day `max-age` before v2.4.6 shortened it), so even removing and re-adding the Home Screen icon showed the old artwork. The service worker is network-first and doesn't cover the OS-level webclip icon fetch, so it couldn't help here either.
+  - **iOS icon:** renamed `icons/apple-touch-icon.png` → `icons/apple-touch-icon-v2.png`. A brand-new URL cannot be served from the stale cache, so re-adding to the Home Screen now fetches the corrected icon. (A query string alone is unreliable for iOS webclips; a real filename change is not.)
+  - **Browser favicons:** added `?v=2` to the favicon `<link>`s (`resourcery-icon-ios.svg`, `favicon-16/32.png`, `favicon.ico`) so browsers holding the old-gradient favicon re-fetch the corrected one.
+- Service worker precache and version bumped to `resourcery-v2.4.7`.
+
+### Notes
+- Going forward, updated icons propagate on their own within ~a day thanks to the v2.4.6 `stale-while-revalidate` headers — this one-time rename/`?v=` bust is only needed to clear copies cached under the old long-lived header.
+
 ## [2.4.6] - 2026-07-16
 
 ### Changed

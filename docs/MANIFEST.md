@@ -26,7 +26,7 @@ The large `@ffmpeg/core@0.12.6` files (`ffmpeg-core.js`, `ffmpeg-core.wasm`, ~31
 - `icons/reSOURCERY_optimized.svg`: **Transparent-background** variant of the same artwork. Used as the in-app header logo, where it sits on the app's dark background.
 - `generate-icons.html`: Zero-dependency, browser-based fallback generator. Rasterizes `resourcery-icon-ios.svg` to the PNG icon set with correct sizes and filenames; download and drop the files into the paths below. (`favicon.ico` is assembled separately from the favicon PNGs.)
 - Generated PNGs (produced from `resourcery-icon-ios.svg`; regenerate with a faithful SVG rasterizer such as resvg or CairoSVG, or the browser-based `generate-icons.html`). All are fully opaque (no alpha channel):
-  - `icons/apple-touch-icon.png` (180×180) — iOS Home Screen icon. iOS ignores SVG `apple-touch-icon`s, so a PNG is required.
+  - `icons/apple-touch-icon-v2.png` (180×180) — iOS Home Screen icon. iOS ignores SVG `apple-touch-icon`s, so a PNG is required. The `-v2` suffix versions the filename so Safari/iOS fetch it fresh instead of serving a previously cached copy of the old icon.
   - `icons/icon-192.png`, `icons/icon-512.png` — PWA install icons (`purpose: any`).
   - `icons/icon-maskable-512.png` — Android maskable icon (`purpose: maskable`); the opaque background fills the platform safe-zone crop.
   - `icons/favicon-16.png`, `icons/favicon-32.png` — PNG favicon fallbacks.
