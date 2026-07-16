@@ -2,6 +2,13 @@
 
 Active task tracking for Claude Code sessions.
 
+## Session (2026-07-16) — Cache-bust corrected icons for returning devices
+
+- [x] User re-added icon, still old → diagnose: Safari/iOS HTTP cache still holds old apple-touch-icon.png (cached under pre-v2.4.6 7-day max-age); SW is network-first and doesn't cover the OS webclip icon fetch
+- [x] Rename icons/apple-touch-icon.png → apple-touch-icon-v2.png (new URL can't be served from stale cache); update index.html, sw.js precache, generate-icons.html, README tree, docs/MANIFEST
+- [x] Add ?v=2 to favicon links (svg/png16/png32/ico) so browsers re-fetch the corrected favicon
+- [x] Bump to v2.4.7; verify syntax + version consistency + no dangling old-name refs; confirm -v2 file is the uniform #5f86ff icon
+
 ## Session (2026-07-16) — Icon cache propagation + full-bleed source audit
 
 - [x] Confirm the v2.4.5 fix is actually live on production (resourcery.vercel.app icon byte-identical to local, corners #5f86ff) — "still same" was device/HTTP caching

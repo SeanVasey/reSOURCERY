@@ -3,7 +3,7 @@
 try { importScripts('./js/version.js'); } catch (e) { /* version.js unavailable */ }
 const CACHE_NAME = (typeof APP_VERSION !== 'undefined' && APP_VERSION.cacheKey)
   ? APP_VERSION.cacheKey
-  : 'resourcery-v2.4.6';
+  : 'resourcery-v2.4.7';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -22,7 +22,7 @@ const STATIC_ASSETS = [
   './manifest.json',
   './resourcery-icon-ios.svg',
   './icons/reSOURCERY_optimized.svg',
-  './icons/apple-touch-icon.png',
+  './icons/apple-touch-icon-v2.png',
   './icons/favicon-16.png',
   './icons/favicon-32.png',
   './icons/icon-192.png',
@@ -144,8 +144,10 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => {
-        // Fallback to cache
-        return caches.match(request).then(cachedResponse => {
+        // Fallback to cache. ignoreSearch so cache-busted asset URLs (e.g. the
+        // favicon links carry ?v=2) still match their query-less precached entry
+        // when offline — and so the bare-referenced manifest SVG matches too.
+        return caches.match(request, { ignoreSearch: true }).then(cachedResponse => {
           if (cachedResponse) {
             return cachedResponse;
           }
