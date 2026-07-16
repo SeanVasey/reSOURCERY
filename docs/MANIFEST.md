@@ -22,9 +22,10 @@ The large `@ffmpeg/core@0.12.6` files (`ffmpeg-core.js`, `ffmpeg-core.wasm`, ~31
 - `coi-serviceworker.js`: Cross-origin isolation support.
 
 ## Icons and Branding
-- `resourcery-icon-ios.svg`: Source app icon — the branded wizard mark on an **opaque** rounded-rect background. Used for the favicon and PWA manifest, and as the source for all generated raster icons. Ideal wherever the icon must render on its own (iOS Home Screen, install tiles).
+- `resourcery-icon-ios.svg`: Source app icon — the branded wizard mark on an **opaque, full-bleed** rounded-rect plate. The plate paints edge-to-edge (1024×1024) so platforms that apply their own mask (iOS squircle, Android maskable crop) never expose transparent corners. Used for the favicon and PWA manifest, and as the source for all generated raster icons. Ideal wherever the icon must render on its own (iOS Home Screen, install tiles).
 - `icons/reSOURCERY_optimized.svg`: **Transparent-background** variant of the same artwork. Used as the in-app header logo, where it sits on the app's dark background.
-- Generated PNGs (produced from `resourcery-icon-ios.svg`; regenerate with a faithful SVG rasterizer such as CairoSVG, or the browser-based `generate-icons.html`):
+- `generate-icons.html`: Zero-dependency, browser-based fallback generator. Rasterizes `resourcery-icon-ios.svg` to the PNG icon set with correct sizes and filenames; download and drop the files into the paths below. (`favicon.ico` is assembled separately from the favicon PNGs.)
+- Generated PNGs (produced from `resourcery-icon-ios.svg`; regenerate with a faithful SVG rasterizer such as resvg or CairoSVG, or the browser-based `generate-icons.html`). All are fully opaque (no alpha channel):
   - `icons/apple-touch-icon.png` (180×180) — iOS Home Screen icon. iOS ignores SVG `apple-touch-icon`s, so a PNG is required.
   - `icons/icon-192.png`, `icons/icon-512.png` — PWA install icons (`purpose: any`).
   - `icons/icon-maskable-512.png` — Android maskable icon (`purpose: maskable`); the opaque background fills the platform safe-zone crop.
