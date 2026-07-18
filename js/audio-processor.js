@@ -24,6 +24,7 @@ class AudioProcessor {
     };
 
     this.proxyEndpoint = '/api/fetch';
+    this.resolveEndpoint = '/api/resolve';
 
     this.ffmpeg = null;
     this.isLoaded = false;
@@ -31,6 +32,8 @@ class AudioProcessor {
     this.currentFile = null;
     this.extractedAudio = null;
     this.audioBuffer = null;
+    // Title extracted from a resolved share page (used for download naming)
+    this.pageTitle = null;
 
     // Settings with defaults
     this.settings = {
@@ -149,6 +152,125 @@ class AudioProcessor {
         }
       }, [dataArray.buffer]);
     });
+  }
+
+  /**
+   * URL classification for the smart link-resolution flow.
+   * Static so the UI layer can consult them before processing starts.
+   */
+  static isYouTubeURL(url) {
+    try {
+      const host = new URL(url).hostname.toLowerCase().replace(/\.$/, '');
+      return host === 'youtu.be' ||
+        host === 'youtube.com' || host.endsWith('.youtube.com') ||
+        host === 'youtube-nocookie.com' || host.endsWith('.youtube-nocookie.com');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Share-page URLs that are known to return HTML rather than media.
+   * Deliberately conservative: unknown hosts keep the direct-fetch fast
+   * path and rely on the HTML byte-sniff fallback instead.
+   */
+  static isKnownSharePage(url) {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false;
+    }
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const path = parsed.pathname;
+
+    if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+      return /^\/(reel|reels|p|tv|share)\//.test(path);
+    }
+    if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com' || host === 'fb.watch') {
+      return true; // shortlink hosts — any path is a share target
+    }
+    if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) {
+      return true;
+    }
+    if (host === 'x.com' || host === 'twitter.com' || host === 'mobile.twitter.com') {
+      return /\/status(es)?\/|^\/i\/status/.test(path);
+    }
+    if (host === 'facebook.com' || host.endsWith('.facebook.com')) {
+      return /^\/(watch|reel|share|video)/.test(path);
+    }
+    return false;
+  }
+
+  /**
+   * Sniff fetched bytes for an HTML document before handing them to FFmpeg.
+   */
+  static looksLikeHTML(bytes) {
+    if (!bytes || bytes.length === 0) return false;
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(0, 1024));
+    return /^\uFEFF?\s*(?:<!--[\s\S]*?-->\s*)*<(?:!doctype\s|html[\s>]|head[\s>]|body[\s>]|meta[\s>]|script[\s>]|title[\s>]|link[\s>]|div[\s>])/i.test(head);
+  }
+
+  /**
+   * User-facing message for a structured resolver failure code.
+   */
+  static resolveErrorMessage(code) {
+    switch (code) {
+      case 'UNSUPPORTED_PLATFORM':
+        return 'YouTube links can\'t be extracted here — YouTube serves protected streams. Download the video with a dedicated tool, then drop the file here.';
+      case 'LOGIN_WALL':
+      case 'UPSTREAM_BLOCKED':
+        return 'This post requires login to view, so the audio can\'t be fetched. Save the media with the platform\'s own download option, then upload it here.';
+      case 'STREAM_MANIFEST_ONLY':
+        return 'This page only exposes a streaming playlist, which can\'t be extracted in-browser. Use the platform\'s download option, then upload the file here.';
+      default:
+        return 'Couldn\'t find a direct media link on that page. Verify the post is public, or upload the file instead.';
+    }
+  }
+
+  /**
+   * Ask the server-side resolver to dig the direct media URL out of a
+   * share page (og:video / JSON-LD / <video> tags / platform JSON).
+   * Stores the page title for download naming.
+   * @param {string} pageUrl
+   * @returns {Promise<{mediaUrl: string, kind: string|null}>}
+   */
+  async resolveMediaURL(pageUrl) {
+    const resolveURL = `${this.resolveEndpoint}?url=${encodeURIComponent(pageUrl)}`;
+
+    let body = null;
+    try {
+      const response = await this.withTimeout(
+        fetch(resolveURL),
+        25000,
+        'Link resolution timed out. The page may be slow — try a direct media URL.'
+      );
+      body = await response.json().catch(() => null);
+    } catch (err) {
+      if ((err?.message || '').includes('timed out')) throw err;
+      throw new Error(AudioProcessor.resolveErrorMessage(null));
+    }
+
+    if (!body || body.ok !== true || !body.mediaUrl) {
+      throw new Error(AudioProcessor.resolveErrorMessage(body?.code));
+    }
+
+    // Never trust server output blindly — re-validate the resolved URL
+    let mediaUrl;
+    try {
+      mediaUrl = new URL(body.mediaUrl);
+    } catch {
+      throw new Error('The resolved media link is invalid. Try a direct media URL.');
+    }
+    if (mediaUrl.protocol !== 'http:' && mediaUrl.protocol !== 'https:') {
+      throw new Error('The resolved media link is invalid. Try a direct media URL.');
+    }
+
+    if (body.pageTitle) {
+      this.pageTitle = String(body.pageTitle).slice(0, 300);
+    }
+
+    return { mediaUrl: mediaUrl.toString(), kind: body.kind || null };
   }
 
   /**
@@ -657,6 +779,7 @@ class AudioProcessor {
 
     this.isProcessing = true;
     this.currentFile = file;
+    this.pageTitle = null;
     // Reset metadata for new file
     this.metadata = { duration: 0, sampleRate: 0, originalSampleRate: 0, channels: 0, bitDepth: 0, codec: '', bitrate: 0 };
     const inputExt = this.inferExtension(file);
@@ -748,6 +871,7 @@ class AudioProcessor {
     }
 
     this.isProcessing = true;
+    this.pageTitle = null;
     // Reset metadata for new processing
     this.metadata = { duration: 0, sampleRate: 0, originalSampleRate: 0, channels: 0, bitDepth: 0, codec: '', bitrate: 0 };
 
@@ -766,24 +890,58 @@ class AudioProcessor {
     }
 
     try {
+      // The UI blocks YouTube before processing starts; keep defense in depth
+      if (AudioProcessor.isYouTubeURL(url)) {
+        throw new Error(AudioProcessor.resolveErrorMessage('UNSUPPORTED_PLATFORM'));
+      }
+
       this.updateStage('Fetching media...');
       this.updateProgress(25);
 
-      // Fetch the URL content with progress tracking and timeout
-      const fetchPromise = this.fetchURLWithFallback(url, (progress) => {
-        // Map fetch progress to 25-35% range
-        this.updateProgress(25 + Math.round(progress * 10));
-      });
+      let fetchURL = url;
+      let resolvedKind = null;
 
-      const fileData = await this.withTimeout(
-        fetchPromise,
-        120000,
-        'URL fetch timed out. The server may be slow or unreachable.'
-      );
+      // Known share pages return HTML, not media — resolve the real media
+      // URL up front instead of downloading a doomed page.
+      if (AudioProcessor.isKnownSharePage(url)) {
+        this.updateStage('Resolving media link from page...');
+        const resolved = await this.resolveMediaURL(url);
+        fetchURL = resolved.mediaUrl;
+        resolvedKind = resolved.kind;
+        this.updateStage('Fetching media...');
+      }
 
-      // Validate that we received data
-      if (!fileData || fileData.length === 0) {
-        throw new Error('No data received from URL');
+      // Fetch, sniffing for HTML; resolution is capped at one hop total
+      let fileData = null;
+      for (let attempt = 0; ; attempt++) {
+        const fetchPromise = this.fetchURLWithFallback(fetchURL, (progress) => {
+          // Map fetch progress to 25-35% range
+          this.updateProgress(25 + Math.round(progress * 10));
+        });
+
+        fileData = await this.withTimeout(
+          fetchPromise,
+          120000,
+          'URL fetch timed out. The server may be slow or unreachable.'
+        );
+
+        // Validate that we received data
+        if (!fileData || fileData.length === 0) {
+          throw new Error('No data received from URL');
+        }
+
+        if (!AudioProcessor.looksLikeHTML(fileData)) break;
+
+        // The bytes are a web page, not media. Resolve once and re-fetch;
+        // a second HTML response means the link can't be turned into media.
+        if (attempt >= 1 || fetchURL !== url) {
+          throw new Error('This link returns a web page, not a media file. Open the post and copy a direct media link, or download the file and upload it here.');
+        }
+        this.updateStage('That was a web page — resolving the media link...');
+        const resolved = await this.resolveMediaURL(url);
+        fetchURL = resolved.mediaUrl;
+        resolvedKind = resolved.kind;
+        this.updateStage('Fetching media...');
       }
 
       // Size limit check (2GB)
@@ -794,12 +952,16 @@ class AudioProcessor {
 
       this.updateProgress(35);
 
-      const fileName = this.extractFileName(url) || 'media';
+      const fileName = this.extractFileName(fetchURL) || this.extractFileName(url) || 'media';
       const file = new File([fileData], fileName);
       this.currentFile = file;
 
-      // Continue processing from the file-write stage (skip re-reading the file)
-      const inputName = 'input' + this.getExtension(fileName);
+      // Continue processing from the file-write stage (skip re-reading the
+      // file). Share URLs often have no extension — give FFmpeg a container
+      // hint so the demuxer doesn't start blind.
+      const inputExt = this.getExtension(fileName) ||
+        (resolvedKind === 'audio' ? '.m4a' : '.mp4');
+      const inputName = 'input' + inputExt;
 
       this.updateStage('Writing media to audio engine...');
       try {
@@ -849,17 +1011,23 @@ class AudioProcessor {
       console.error('Error processing URL:', error);
       // Provide user-friendly error messages for common fetch failures
       const msg = error.message || '';
+      // Resolver and sniff errors are already user-facing — pass them through
+      if (msg.includes('media link') || msg.includes('web page') ||
+          msg.includes('requires login') || msg.includes('streaming playlist') ||
+          msg.includes('YouTube') || msg.includes('timed out')) {
+        throw error;
+      }
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
         throw new Error('Could not fetch URL. The server may block cross-origin requests (CORS).');
       }
       if (msg.includes('HTTP 413') || msg.includes('2 GB')) {
         throw new Error('The remote file is larger than the 2 GB limit.');
       }
-      if (msg.includes('HTTP 403') || msg.includes('Private network addresses')) {
+      if (msg.includes('Private network addresses')) {
         throw new Error('This URL is blocked by security policy. Please use a public media URL.');
       }
-      if (msg.includes('timed out')) {
-        throw error;
+      if (msg.includes('HTTP 401') || msg.includes('HTTP 403')) {
+        throw new Error('The platform refused the request (login or region wall). Try the platform\'s download option, then upload the file here.');
       }
       throw new Error('Failed to process URL. Please verify the link is public and points to a media file.');
     }

@@ -5,6 +5,30 @@ All notable changes to reSOURCERY will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-07-18
+
+### Added
+- **Smart link resolution for social share URLs.** Pasting a share link (Instagram Reel/post, TikTok — including `vm.tiktok.com` shortlinks, X/Twitter status, Facebook watch/reel) no longer fails with a generic error. A new hardened `/api/resolve` endpoint fetches the page (crawler User-Agent first, browser UA as fallback), extracts the direct media URL from Open Graph tags, JSON-LD, `<video>`/`<audio>` tags, or embedded platform JSON, and hands it back for the normal fetch → FFmpeg pipeline. The client also byte-sniffs every fetched URL and auto-resolves when the bytes turn out to be a web page instead of media.
+- **Standardized download naming.** Clicking a download format now opens a compact naming dialog with a live filename preview. Files are saved as `[Title] - [BPM]bpm - [KEY].[ext]` (e.g. `Sunset Groove - 124bpm - F#m.wav`), using the detected tempo and key; segments are omitted gracefully when analysis is unavailable. The title is pre-filled from the resolved page title or source filename, remembered across formats for the same track, and sanitized for filesystem safety.
+- **Waveform playback overlay.** During playback the waveform sweeps left→right with a translucent indigo wash (the icon's blue) and a glowing playhead marker, animated at 60 fps via `requestAnimationFrame` (falls back to coarse `timeupdate` redraws when the OS prefers reduced motion). The waveform is now click/tap-to-seek and the seek bar shows a filled indigo→cyan track.
+- Unit tests for the resolver's HTML extraction helpers (`tests/resolve-extract.test.mjs`), now run in CI alongside the FFmpeg config test.
+
+### Changed
+- **Glassmorphism polish.** Panels gain `saturate()` behind the blur, a crisper light-catching top edge, and a whisper of per-panel film grain; format buttons get a glass sheen sweep on hover; the play button and input focus rings pick up the indigo accent. No layout changes; reduced-motion is respected.
+- Proxy SSRF helpers extracted to `api/_lib/security.js` (not exposed as an endpoint) and shared by `/api/fetch` and `/api/resolve`; `/api/fetch` behavior is unchanged.
+- YouTube links are detected up front and get an honest explanation (YouTube serves protected/ciphered streams that cannot be extracted in-browser) instead of a doomed fetch attempt.
+- URL processing errors are now specific: login-walled posts, streaming-manifest-only pages, "this link returns a web page", and platform 403s each get actionable guidance instead of one generic message.
+- `server.py` mirrors `/api/resolve` for local development, matching the production JSON contract.
+
+### Fixed
+- **Proxy DNS-pinning lookup was incompatible with Node ≥ 20.** `net.connect` with `autoSelectFamily` (default since Node 20) invokes the custom `lookup` with `{ all: true }` and expects an address array; the pinned lookup only answered the legacy `(err, address, family)` shape, so on modern runtimes every proxied request failed with `Invalid IP address: undefined`. The lookup now serves both callback shapes — still answering exclusively with the pre-validated pinned IP. Verified by streaming a real URL through the handler byte-for-byte on Node 22.
+
+### Security
+- `/api/resolve` reuses the full SSRF hardening from `/api/fetch`: private-IP blocking, DNS resolution with IP pinning, and per-redirect re-validation. It returns URLs only — media bytes still flow exclusively through the existing validated fetch paths. Resolved URLs are re-validated client-side (http/https only), page buffering is capped at 3 MB, and extracted titles are clamped and sanitized.
+
+### Notes
+- Some platforms serve login walls to datacenter IPs regardless of User-Agent (Instagram in particular), and some resolved platform URLs are signed/IP-bound. Resolution is best-effort by design: failures surface as clear, actionable messages, never silent hangs.
+
 ## [2.4.7] - 2026-07-16
 
 ### Fixed

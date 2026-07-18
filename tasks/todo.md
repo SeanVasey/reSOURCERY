@@ -2,6 +2,23 @@
 
 Active task tracking for Claude Code sessions.
 
+## Session (2026-07-18) — Smart link resolution, download naming, waveform playhead, glass polish (v2.5.0)
+
+- [x] Explore URL pipeline / download flow / waveform + design system; plan approved (smart share-link resolution, naming dialog, playback overlay, glass polish)
+- [x] Extract shared SSRF helpers to `api/_lib/security.js` (verbatim move + optional headers/timeout on `pinnedRequest`); `api/fetch.js` imports them, handler unchanged
+- [x] New `api/resolve.js`: SSRF-validated page fetch (crawler UA → browser UA), per-hop redirect re-validation, 3 MB HTML cap, extraction priority og:video → JSON-LD → video/audio tags → contentUrl/playAddr JSON, page title for naming, structured codes (LOGIN_WALL / NO_MEDIA_FOUND / STREAM_MANIFEST_ONLY / UPSTREAM_BLOCKED / UNSUPPORTED_PLATFORM)
+- [x] Mirror `/api/resolve` in `server.py` (same JSON contract) for local dev
+- [x] Client flow (`audio-processor.js`): YouTube guard, `isKnownSharePage` pre-resolution, HTML byte-sniff before FFmpeg with one-hop resolve retry, container-extension default for extensionless share URLs, specific error copy (login wall / web page / manifest / 403)
+- [x] `app.js`: YouTube toast at URL submit (no doomed processing run)
+- [x] Naming dialog (glass, z-350): title field pre-filled + remembered per track, live preview, Enter/Escape/overlay handling, sanitizer; downloads save as `Title - 124bpm - F#m.ext` (segments omitted when analysis missing)
+- [x] Waveform playback overlay: setup/draw split (no per-frame layout reads), indigo wash + glowing playhead, rAF loop bound to audio play/pause events, prefers-reduced-motion fallback to timeupdate, click-to-seek, seek-bar gradient fill; fixed initial draw happening while the results section was still hidden
+- [x] Glass polish: saturate() behind panel blur, crisper top bevel, per-panel noise (drop zone excluded — keeps its glow), format-btn hover sheen, indigo play-btn glow + input focus ring
+- [x] Tests: `tests/resolve-extract.test.mjs` (extraction fixtures) — added to CI alongside existing config test; CI syntax/baseline lists extended with the new api files
+- [x] Bump to v2.5.0 (version.js, sw.js fallback, index.html ×3, README badge/features/tree/history, CHANGELOG, CLAUDE.md, docs/MANIFEST.md)
+- [x] Verify: syntax + unit tests + version consistency + local `/api/resolve` guard checks (400/403/422) + live-network resolver runs against real pages (article → NO_MEDIA_FOUND; Wikimedia Commons video page → direct `.webm` via JSON-LD) + Node-handler smoke tests (proxy streams byte-identical to direct fetch) + headless-Chromium E2E (YouTube toast, upload → 120 BPM / A minor results, playhead animates + stops on pause, click-to-seek, naming dialog Escape/preview/download `My Test Track - 120bpm - Am.wav`, title remembered across formats)
+- [x] Found & fixed while verifying: DNS-pinning `lookup` callback incompatible with Node ≥ 20 `autoSelectFamily` (`{all: true}` array shape) — production proxy would fail on modern runtimes
+- [x] Commit + push + draft PR
+
 ## Session (2026-07-16) — Cache-bust corrected icons for returning devices
 
 - [x] User re-added icon, still old → diagnose: Safari/iOS HTTP cache still holds old apple-touch-icon.png (cached under pre-v2.4.6 7-day max-age); SW is network-first and doesn't cover the OS webclip icon fetch

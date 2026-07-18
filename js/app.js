@@ -13,6 +13,25 @@
  * @bugfix Fixed version inconsistencies via modular version config
  */
 
+// Key-token notation for download filenames: "F#m" (minor) / "F#" (major).
+// Swap these suffixes to change notation (e.g. 'min'/'maj').
+const KEY_MINOR_SUFFIX = 'm';
+const KEY_MAJOR_SUFFIX = '';
+
+// Canvas-side mirrors of the CSS design tokens (canvas can't read custom
+// properties). Keep in sync with :root in css/styles.css —
+// --indigo-300 #7088dd, --indigo-400 #5568cc, --indigo-500 #4455aa.
+const WAVEFORM_COLORS = {
+  unplayedTop: 'rgba(34, 211, 238, 0.35)',
+  unplayedMid: 'rgba(13, 148, 136, 0.25)',
+  playedTop: 'rgba(112, 136, 221, 0.95)',   // --indigo-300
+  playedMid: 'rgba(85, 104, 204, 0.75)',    // --indigo-400
+  washTop: 'rgba(85, 104, 204, 0.14)',      // --indigo-400
+  washBottom: 'rgba(68, 85, 170, 0.05)',    // --indigo-500
+  playhead: '#7088dd',                       // --indigo-300
+  playheadHalo: 'rgba(112, 136, 221, 0.28)'
+};
+
 class ReSOURCERYApp {
   constructor() {
     // State
@@ -24,6 +43,16 @@ class ReSOURCERYApp {
     this.audioObjectURL = null;
     this.isConverting = false;
     this.resizeTimer = null;
+
+    // Download naming (remembered per loaded track)
+    this.trackTitle = '';
+    this.pendingFormat = null;
+    this.pendingFormatBtn = null;
+
+    // Waveform playback overlay
+    this.rafId = null;
+    this.waveformMetrics = null;
+    this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     // DOM Elements
     this.elements = {};
@@ -92,6 +121,7 @@ class ReSOURCERYApp {
       // Results
       newExtractBtn: document.getElementById('newExtractBtn'),
       waveformCanvas: document.getElementById('waveformCanvas'),
+      waveformContainer: document.getElementById('waveformContainer'),
       playBtn: document.getElementById('playBtn'),
       seekBar: document.getElementById('seekBar'),
       currentTime: document.getElementById('currentTime'),
@@ -110,6 +140,15 @@ class ReSOURCERYApp {
       downloadProgress: document.getElementById('downloadProgress'),
       downloadStatus: document.getElementById('downloadStatus'),
       downloadBarFill: document.getElementById('downloadBarFill'),
+
+      // Naming dialog
+      nameDialog: document.getElementById('nameDialog'),
+      nameDialogOverlay: document.getElementById('nameDialogOverlay'),
+      nameDialogFormat: document.getElementById('nameDialogFormat'),
+      trackTitleInput: document.getElementById('trackTitleInput'),
+      namePreview: document.getElementById('namePreview'),
+      nameCancelBtn: document.getElementById('nameCancelBtn'),
+      nameConfirmBtn: document.getElementById('nameConfirmBtn'),
 
       // Settings
       menuBtn: document.getElementById('menuBtn'),
@@ -170,9 +209,49 @@ class ReSOURCERYApp {
     this.audioElement.addEventListener('ended', () => this.handlePlaybackEnd());
     this.audioElement.addEventListener('loadedmetadata', () => this.handleAudioLoaded());
 
+    // Playhead animation follows the element's real state, so OS media
+    // controls and programmatic play/pause stay in sync with the UI
+    this.audioElement.addEventListener('play', () => {
+      this.isPlaying = true;
+      this.elements.playBtn.classList.add('playing');
+      this.startPlayheadLoop();
+    });
+    this.audioElement.addEventListener('pause', () => {
+      this.isPlaying = false;
+      this.elements.playBtn.classList.remove('playing');
+      this.stopPlayheadLoop();
+      if (this.settings.showWaveform) {
+        this.drawWaveform(this.getPlaybackProgress());
+      }
+    });
+
+    // Halt the animation loop live if the user enables reduced motion
+    this.reducedMotion.addEventListener('change', () => {
+      if (this.reducedMotion.matches) {
+        this.stopPlayheadLoop();
+      } else if (this.isPlaying) {
+        this.startPlayheadLoop();
+      }
+    });
+
+    // Click/tap the waveform to seek (keyboard users have the seek bar)
+    this.elements.waveformContainer.addEventListener('click', (e) => this.handleWaveformSeek(e));
+
     // Format buttons
     this.elements.formatBtns.forEach(btn => {
       btn.addEventListener('click', () => this.handleFormatSelect(btn));
+    });
+
+    // Naming dialog
+    this.elements.nameConfirmBtn.addEventListener('click', () => this.confirmDownload());
+    this.elements.nameCancelBtn.addEventListener('click', () => this.closeNameDialog());
+    this.elements.nameDialogOverlay.addEventListener('click', () => this.closeNameDialog());
+    this.elements.trackTitleInput.addEventListener('input', () => this.updateNamePreview());
+    this.elements.trackTitleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.confirmDownload();
+      }
     });
 
     // Settings
@@ -198,11 +277,26 @@ class ReSOURCERYApp {
     this.elements.showWaveform.addEventListener('change', (e) => {
       this.settings.showWaveform = e.target.checked;
       this.saveSettings();
+      if (e.target.checked) {
+        if (!this.elements.resultsSection.classList.contains('hidden')) {
+          this.setupWaveformCanvas();
+          this.drawWaveform(this.getPlaybackProgress());
+          if (this.isPlaying) this.startPlayheadLoop();
+        }
+      } else {
+        this.stopPlayheadLoop();
+        this.clearWaveform();
+      }
     });
 
-    // Escape closes the settings panel
+    // Escape closes the naming dialog first, then the settings panel
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !this.elements.settingsPanel.classList.contains('hidden')) {
+      if (e.key !== 'Escape') return;
+      if (!this.elements.nameDialog.classList.contains('hidden')) {
+        this.closeNameDialog();
+        return;
+      }
+      if (!this.elements.settingsPanel.classList.contains('hidden')) {
         this.toggleSettings(false);
       }
     });
@@ -212,6 +306,7 @@ class ReSOURCERYApp {
       clearTimeout(this.resizeTimer);
       this.resizeTimer = setTimeout(() => {
         if (!this.elements.resultsSection.classList.contains('hidden')) {
+          this.setupWaveformCanvas();
           this.drawWaveform(this.getPlaybackProgress());
         }
       }, 150);
@@ -270,6 +365,12 @@ class ReSOURCERYApp {
 
     if (!this.isValidURL(url)) {
       this.showToast('Please enter a valid URL', 'error');
+      return;
+    }
+
+    // YouTube streams are ciphered — no extraction attempt, no section switch
+    if (AudioProcessor.isYouTubeURL(url)) {
+      this.showToast('YouTube links can\'t be extracted here — YouTube serves protected streams. Download the video with a dedicated tool, then drop the file here.', 'error');
       return;
     }
 
@@ -493,6 +594,9 @@ class ReSOURCERYApp {
       this.elements.metaKey.textContent = '--';
     }
 
+    // Seed the download title for this track (page title > filename > 'audio')
+    this.trackTitle = this.deriveDefaultTitle();
+
     // Revoke previous audio URL if any
     if (this.audioObjectURL) {
       URL.revokeObjectURL(this.audioObjectURL);
@@ -503,57 +607,90 @@ class ReSOURCERYApp {
     this.audioObjectURL = URL.createObjectURL(wavBlob);
     this.audioElement.src = this.audioObjectURL;
 
-    // Draw waveform
+    // Show results section first — the canvas parent must be laid out
+    // (non-zero size) before the waveform can be measured and drawn
+    this.showSection('results');
+
     if (this.settings.showWaveform) {
+      this.setupWaveformCanvas();
       this.drawWaveform();
     }
-
-    // Show results section
-    this.showSection('results');
+    this.updateSeekBarFill(0);
   }
 
   /**
-   * Draw waveform visualization
-   * @param {number} progress - Playback position 0..1; bars before it render brighter
+   * Measure the canvas, size the backing store for the device pixel ratio,
+   * and pre-build the gradients. Cached in this.waveformMetrics so the
+   * rAF-driven drawWaveform() does no layout reads or allocations.
+   * Returns null while the results section is hidden (zero-size parent).
    */
-  drawWaveform(progress = 0) {
+  setupWaveformCanvas() {
     const canvas = this.elements.waveformCanvas;
-    if (!canvas || !this.waveformData.length) return;
-    const ctx = canvas.getContext('2d');
+    if (!canvas) return null;
 
-    // Set canvas size
     const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    if (!rect.width || !rect.height) {
+      this.waveformMetrics = null;
+      return null;
+    }
 
-    const width = rect.width;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     const height = rect.height;
 
-    // Clear canvas
+    // Unplayed bars: dim cyan; played bars + overlay: icon blue (indigo)
+    const unplayed = ctx.createLinearGradient(0, 0, 0, height);
+    unplayed.addColorStop(0, WAVEFORM_COLORS.unplayedTop);
+    unplayed.addColorStop(0.5, WAVEFORM_COLORS.unplayedMid);
+    unplayed.addColorStop(1, WAVEFORM_COLORS.unplayedTop);
+
+    const played = ctx.createLinearGradient(0, 0, 0, height);
+    played.addColorStop(0, WAVEFORM_COLORS.playedTop);
+    played.addColorStop(0.5, WAVEFORM_COLORS.playedMid);
+    played.addColorStop(1, WAVEFORM_COLORS.playedTop);
+
+    const wash = ctx.createLinearGradient(0, 0, 0, height);
+    wash.addColorStop(0, WAVEFORM_COLORS.washTop);
+    wash.addColorStop(1, WAVEFORM_COLORS.washBottom);
+
+    this.waveformMetrics = {
+      ctx,
+      width: rect.width,
+      height,
+      gradients: { unplayed, played, wash }
+    };
+    return this.waveformMetrics;
+  }
+
+  /**
+   * Draw the waveform with the playback overlay: played bars in indigo,
+   * a translucent blue wash sweeping left→right, and a playhead marker.
+   * Runs at 60fps during playback — keep this allocation- and layout-free.
+   * @param {number} progress - Playback position 0..1
+   */
+  drawWaveform(progress = 0) {
+    if (!this.waveformData.length) return;
+
+    const metrics = this.waveformMetrics || this.setupWaveformCanvas();
+    if (!metrics) return;
+
+    const { ctx, width, height, gradients } = metrics;
     ctx.clearRect(0, 0, width, height);
 
-    // Draw waveform
     const barWidth = width / this.waveformData.length;
     const centerY = height / 2;
     const playedBars = Math.floor(progress * this.waveformData.length);
-
-    // Unplayed bars: dim gradient; played bars: bright cyan
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, 'rgba(34, 211, 238, 0.35)');
-    gradient.addColorStop(0.5, 'rgba(13, 148, 136, 0.25)');
-    gradient.addColorStop(1, 'rgba(34, 211, 238, 0.35)');
-
-    const playedGradient = ctx.createLinearGradient(0, 0, 0, height);
-    playedGradient.addColorStop(0, 'rgba(34, 211, 238, 0.95)');
-    playedGradient.addColorStop(0.5, 'rgba(45, 212, 191, 0.75)');
-    playedGradient.addColorStop(1, 'rgba(34, 211, 238, 0.95)');
 
     for (let i = 0; i < this.waveformData.length; i++) {
       const value = this.waveformData[i];
       const barHeight = value * height * 0.8;
 
-      ctx.fillStyle = i < playedBars ? playedGradient : gradient;
+      ctx.fillStyle = i < playedBars ? gradients.played : gradients.unplayed;
       ctx.fillRect(
         i * barWidth,
         centerY - barHeight / 2,
@@ -561,6 +698,85 @@ class ReSOURCERYApp {
         barHeight
       );
     }
+
+    if (progress > 0) {
+      const x = progress * width;
+
+      // Translucent indigo wash over the played region
+      ctx.fillStyle = gradients.wash;
+      ctx.fillRect(0, 0, x, height);
+
+      // Playhead: soft halo + solid core + end caps
+      ctx.fillStyle = WAVEFORM_COLORS.playheadHalo;
+      ctx.fillRect(x - 3, 0, 6, height);
+      ctx.fillStyle = WAVEFORM_COLORS.playhead;
+      ctx.fillRect(x - 1, 0, 2, height);
+      ctx.fillRect(x - 2.5, 0, 5, 2);
+      ctx.fillRect(x - 2.5, height - 2, 5, 2);
+    }
+  }
+
+  /**
+   * Clear the waveform canvas and invalidate cached metrics
+   */
+  clearWaveform() {
+    const canvas = this.elements.waveformCanvas;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    this.waveformMetrics = null;
+  }
+
+  /**
+   * Smooth playhead animation while audio plays. Skipped when the user
+   * prefers reduced motion (the ~4 Hz timeupdate redraws still show
+   * coarse progress) or the waveform is hidden.
+   */
+  startPlayheadLoop() {
+    if (this.rafId !== null) return;
+    if (this.reducedMotion.matches || !this.settings.showWaveform) return;
+
+    const tick = () => {
+      this.drawWaveform(this.getPlaybackProgress());
+      this.rafId = requestAnimationFrame(tick);
+    };
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  stopPlayheadLoop() {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
+  /**
+   * Seek by clicking/tapping the waveform
+   */
+  handleWaveformSeek(e) {
+    const duration = this.audioElement.duration;
+    if (!duration || !isFinite(duration)) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+
+    const fraction = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+    this.audioElement.currentTime = fraction * duration;
+    this.elements.seekBar.value = fraction * 100;
+    this.updateSeekBarFill(fraction * 100);
+    if (this.settings.showWaveform) {
+      this.drawWaveform(fraction);
+    }
+  }
+
+  /**
+   * Paint the seek bar's filled portion (range inputs have no native fill)
+   */
+  updateSeekBarFill(percent) {
+    this.elements.seekBar.style.background =
+      `linear-gradient(90deg, var(--indigo-400) 0%, var(--cyan-400) ${percent}%, var(--gray-700) ${percent}%)`;
   }
 
   /**
@@ -573,14 +789,127 @@ class ReSOURCERYApp {
   }
 
   /**
-   * Handle format selection
+   * Handle format selection — opens the naming dialog; the conversion
+   * itself runs in confirmDownload() once the title is confirmed.
    */
-  async handleFormatSelect(button) {
+  handleFormatSelect(button) {
     // Ignore clicks while a conversion is already running
     if (this.isConverting) return;
-    this.isConverting = true;
 
-    const format = button.dataset.format;
+    this.pendingFormat = button.dataset.format;
+    this.pendingFormatBtn = button;
+    this.openNameDialog();
+  }
+
+  /**
+   * Open the naming dialog for the pending format
+   */
+  openNameDialog() {
+    const format = this.pendingFormat;
+    this.elements.nameDialogFormat.textContent =
+      format === 'aac' ? 'AAC (.m4a)' : format.toUpperCase();
+    this.elements.trackTitleInput.value = this.trackTitle;
+    this.updateNamePreview();
+    this.elements.nameDialog.classList.remove('hidden');
+    this.elements.trackTitleInput.focus();
+    this.elements.trackTitleInput.select();
+  }
+
+  /**
+   * Close the naming dialog, restoring focus to the triggering button
+   */
+  closeNameDialog() {
+    if (this.elements.nameDialog.classList.contains('hidden')) return;
+    this.elements.nameDialog.classList.add('hidden');
+    if (this.pendingFormatBtn) this.pendingFormatBtn.focus();
+    this.pendingFormat = null;
+    this.pendingFormatBtn = null;
+  }
+
+  /**
+   * Strip filesystem-hostile characters from a user-supplied title
+   */
+  sanitizeFileName(name) {
+    const cleaned = (name || '')
+      .replace(/[/\\:*?"<>|\u0000-\u001f\u007f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^\.+|\.+$/g, '')
+      .slice(0, 120)
+      .trim();
+    // Windows reserves these device names even as bare filenames
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(cleaned)) {
+      return `_${cleaned}`;
+    }
+    return cleaned || 'audio';
+  }
+
+  /**
+   * Compact key token from analysis: "F#m" (minor) / "F#" (major)
+   */
+  formatKeyToken(key) {
+    if (!key || !key.key) return '';
+    return key.key + (key.mode === 'minor' ? KEY_MINOR_SUFFIX : KEY_MAJOR_SUFFIX);
+  }
+
+  /**
+   * Build "[Name] - [BPM]bpm - [KEY].[ext]", omitting missing segments
+   */
+  buildDownloadName(format) {
+    const metadata = this.currentResult?.metadata || this.processor?.metadata || null;
+    const title = this.sanitizeFileName(
+      this.elements.trackTitleInput.value || this.trackTitle
+    );
+
+    const parts = [title];
+    if (metadata?.tempo?.bpm) parts.push(`${metadata.tempo.bpm}bpm`);
+    const keyToken = this.formatKeyToken(metadata?.key);
+    if (keyToken) parts.push(keyToken);
+
+    const extension = format === 'aac' ? 'm4a' : format;
+    return `${parts.join(' - ')}.${extension}`;
+  }
+
+  /**
+   * Live filename preview inside the naming dialog
+   */
+  updateNamePreview() {
+    if (!this.pendingFormat) return;
+    this.elements.namePreview.textContent = this.buildDownloadName(this.pendingFormat);
+  }
+
+  /**
+   * Default title for a freshly loaded track:
+   * resolved page title > source filename > 'audio'
+   */
+  deriveDefaultTitle() {
+    if (this.processor?.pageTitle) {
+      return this.sanitizeFileName(this.processor.pageTitle);
+    }
+    const sourceName = this.processor?.currentFile?.name;
+    if (sourceName) {
+      const base = sourceName.replace(/\.[^/.]+$/, '');
+      if (base && base !== 'media' && base !== 'input') {
+        return this.sanitizeFileName(base);
+      }
+    }
+    return 'audio';
+  }
+
+  /**
+   * Convert to the pending format and download under the confirmed name
+   */
+  async confirmDownload() {
+    if (this.isConverting) return;
+    const format = this.pendingFormat;
+    const button = this.pendingFormatBtn;
+    if (!format || !button) return;
+
+    this.trackTitle = this.elements.trackTitleInput.value.trim();
+    const fileName = this.buildDownloadName(format);
+    this.closeNameDialog();
+
+    this.isConverting = true;
 
     // Update UI
     this.elements.formatBtns.forEach(btn => {
@@ -607,11 +936,11 @@ class ReSOURCERYApp {
       // Convert
       const result = await this.processor.convertToFormat(format);
 
-      this.elements.downloadStatus.textContent = 'Download ready!';
+      this.elements.downloadStatus.textContent = `Ready: ${fileName}`;
       this.elements.downloadBarFill.style.width = '100%';
 
-      // Trigger download
-      this.downloadFile(result.blob, result.fileName);
+      // Trigger download under the user-confirmed name
+      this.downloadFile(result.blob, fileName);
 
       // Hide progress after delay
       setTimeout(() => {
@@ -652,13 +981,11 @@ class ReSOURCERYApp {
    * Toggle playback
    */
   togglePlayback() {
+    // The audio element's play/pause events keep isPlaying, the button
+    // state, and the playhead loop in sync (incl. OS media controls)
     if (this.isPlaying) {
       this.audioElement.pause();
-      this.isPlaying = false;
-      this.elements.playBtn.classList.remove('playing');
     } else {
-      this.isPlaying = true;
-      this.elements.playBtn.classList.add('playing');
       this.audioElement.play().catch((error) => {
         console.error('[reSOURCERY] Playback failed:', error);
         this.isPlaying = false;
@@ -676,6 +1003,7 @@ class ReSOURCERYApp {
     if (!duration || !isFinite(duration)) return;
     const percent = e.target.value / 100;
     this.audioElement.currentTime = percent * duration;
+    this.updateSeekBarFill(e.target.value);
     if (this.settings.showWaveform) {
       this.drawWaveform(percent);
     }
@@ -690,8 +1018,11 @@ class ReSOURCERYApp {
 
     this.elements.currentTime.textContent = this.formatTime(current);
     if (duration && isFinite(duration)) {
-      this.elements.seekBar.value = (current / duration) * 100;
-      if (this.settings.showWaveform) {
+      const percent = (current / duration) * 100;
+      this.elements.seekBar.value = percent;
+      this.updateSeekBarFill(percent);
+      // While the rAF loop runs it owns the redraws — avoid double drawing
+      if (this.settings.showWaveform && this.rafId === null) {
         this.drawWaveform(current / duration);
       }
     }
@@ -709,8 +1040,10 @@ class ReSOURCERYApp {
    */
   handlePlaybackEnd() {
     this.isPlaying = false;
+    this.stopPlayheadLoop();
     this.elements.playBtn.classList.remove('playing');
     this.elements.seekBar.value = 0;
+    this.updateSeekBarFill(0);
     if (this.settings.showWaveform) {
       this.drawWaveform(0);
     }
@@ -749,7 +1082,11 @@ class ReSOURCERYApp {
       this.audioObjectURL = null;
     }
     this.isPlaying = false;
+    this.stopPlayheadLoop();
+    this.waveformMetrics = null;
     this.elements.playBtn.classList.remove('playing');
+    this.elements.seekBar.value = 0;
+    this.updateSeekBarFill(0);
   }
 
   /**
