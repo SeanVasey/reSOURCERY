@@ -837,6 +837,10 @@ class ReSOURCERYApp {
       .replace(/^\.+|\.+$/g, '')
       .slice(0, 120)
       .trim();
+    // Windows reserves these device names even as bare filenames
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(cleaned)) {
+      return `_${cleaned}`;
+    }
     return cleaned || 'audio';
   }
 

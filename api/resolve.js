@@ -120,12 +120,17 @@ function collectMetaTags(html) {
   return meta;
 }
 
+// Real-world JSON-LD nests shallowly; the cap only guards against
+// pathological payloads blowing the stack in the serverless function.
+const MAX_JSONLD_DEPTH = 32;
+
 /** Recursively collect VideoObject/AudioObject contentUrl from JSON-LD data. */
-function collectJSONLDMedia(node, out, seen = new Set()) {
+function collectJSONLDMedia(node, out, seen = new Set(), depth = 0) {
+  if (depth > MAX_JSONLD_DEPTH) return;
   if (!node || typeof node !== 'object' || seen.has(node)) return;
   seen.add(node);
   if (Array.isArray(node)) {
-    for (const item of node) collectJSONLDMedia(item, out, seen);
+    for (const item of node) collectJSONLDMedia(item, out, seen, depth + 1);
     return;
   }
   const rawType = node['@type'];
@@ -140,7 +145,7 @@ function collectJSONLDMedia(node, out, seen = new Set()) {
     }
   }
   for (const key of Object.keys(node)) {
-    collectJSONLDMedia(node[key], out, seen);
+    collectJSONLDMedia(node[key], out, seen, depth + 1);
   }
 }
 

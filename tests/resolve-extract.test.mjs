@@ -131,6 +131,16 @@ const BASE = 'https://example.com/watch/abc/';
   assert.strictEqual(extractMediaFromHTML(html, BASE).mediaUrl, null);
 }
 
+// Pathologically deep JSON-LD must not blow the stack (depth-capped),
+// while media within the cap is still found
+{
+  const deep = '['.repeat(5000) + '{}' + ']'.repeat(5000);
+  const html = `<script type="application/ld+json">${deep}</script>
+    <script type="application/ld+json">{"@graph":[{"items":[{"@type":"VideoObject","contentUrl":"https://cdn.example.com/shallow.mp4"}]}]}</script>`;
+  const result = extractMediaFromHTML(html, BASE);
+  assert.strictEqual(result.mediaUrl, 'https://cdn.example.com/shallow.mp4');
+}
+
 // decodeHTMLEntities: named, decimal, hex
 assert.strictEqual(decodeHTMLEntities('a &amp; b &lt;c&gt; &#39;d&#x27;'), "a & b <c> 'd'");
 assert.strictEqual(decodeHTMLEntities(''), '');

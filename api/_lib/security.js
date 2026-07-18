@@ -54,11 +54,17 @@ export function parseIP(hostname) {
 
 /**
  * Check whether an IPv4 address falls in a private/reserved range.
+ * Octets must be plain decimal integers without leading zeros — floats,
+ * hex, and octal-ambiguous forms are treated as malformed and blocked.
  */
 export function isPrivateIPv4(address) {
-  const parts = address.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((p) => p < 0 || p > 255 || !Number.isFinite(p))) {
+  const rawParts = address.split('.');
+  if (rawParts.length !== 4 || rawParts.some((p) => !/^(0|[1-9]\d{0,2})$/.test(p))) {
     return true; // Malformed — treat as blocked
+  }
+  const parts = rawParts.map((p) => parseInt(p, 10));
+  if (parts.some((p) => p > 255)) {
+    return true;
   }
   const [a, b] = parts;
 
