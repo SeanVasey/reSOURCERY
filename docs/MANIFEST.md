@@ -35,8 +35,14 @@ The large `@ffmpeg/core@0.12.6` files (`ffmpeg-core.js`, `ffmpeg-core.wasm`, ~31
 
 ## Deployment
 - `vercel.json`: Vercel deployment headers (COOP/COEP), cache config, API-aware rewrites.
+- `api/_lib/security.js`: Shared SSRF validation, DNS-pinning, and pinned-request helpers imported by both API routes. The underscore prefix keeps Vercel from exposing it as an endpoint.
 - `api/fetch.js`: Hardened URL proxy for CORS-restricted media hosts (Vercel serverless function).
-- `server.py`: Local static host with matching `/api/fetch` proxy behavior for development testing.
+- `api/resolve.js`: Share-page media-link resolver — fetches a social share URL behind the same SSRF hardening and extracts the direct media URL (Open Graph → JSON-LD → `<video>`/`<audio>` tags → platform JSON) plus the page title for download naming. Returns JSON only, never media bytes.
+- `server.py`: Local static host with matching `/api/fetch` and `/api/resolve` behavior for development testing.
+
+## Tests
+- `tests/audio-processor-config.test.js`: Regression test for the FFmpeg core configuration (single-threaded core must not fetch a worker).
+- `tests/resolve-extract.test.mjs`: Unit tests for the resolver's pure HTML-extraction helpers (meta priority, entity decoding, relative URLs, JSON-LD, manifest/login handling, title cleanup).
 
 ## Documentation and Governance
 - `README.md`: Product overview, usage, and development instructions.

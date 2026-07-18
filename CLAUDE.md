@@ -15,7 +15,7 @@ You are operating as a **senior staff engineer + product-minded UX lead** inside
 
 ## Project Overview
 
-reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and analysis. All media processing runs in the browser via FFmpeg.wasm — there is no backend server, no API routes (except an optional hardened URL proxy), and no database. The app is deployed as static files to Vercel.
+reSOURCERY is a client-side Progressive Web App (PWA) for audio extraction and analysis. All media processing runs in the browser via FFmpeg.wasm — there is no backend server, no API routes (except an optional hardened URL proxy `/api/fetch` and share-page media-link resolver `/api/resolve`), and no database. The app is deployed as static files to Vercel.
 
 ## Tech Stack
 
@@ -51,7 +51,7 @@ Measure first. Avoid regressions. Optimize critical rendering paths.
 
 **Input & Data:** URL inputs are validated: only `http:` and `https:` protocols allowed. Toast messages use `textContent` (never `innerHTML`) to prevent XSS. File size limit: 2 GB (enforced client-side). Validate uploads by file signature (magic bytes), not extension. Validate redirect URLs against an allow-list.
 
-**API & Access Control:** The optional `/api/fetch` proxy is hardened against SSRF (private IP blocking, DNS resolution, redirect re-validation). CORS restricted to allow-listed production domains. Verify webhook signatures before processing sensitive data.
+**API & Access Control:** The optional API routes share SSRF hardening via `api/_lib/security.js` (private IP blocking, DNS resolution with IP pinning, redirect re-validation): `/api/fetch` proxies media bytes, `/api/resolve` extracts direct media URLs from share pages and returns JSON only (page buffering capped at 3 MB; resolved URLs re-validated client-side). Verify webhook signatures before processing sensitive data.
 
 **Supply Chain:** No npm dependencies (CDN only). Never commit secrets — `.env.example` + `.gitignore`. If dependencies are ever added, run `npm audit` in CI.
 
@@ -85,7 +85,10 @@ reSOURCERY/
 ├── start-server.sh         → Server launch helper
 │
 ├── api/
-│   └── fetch.js            → Hardened URL proxy endpoint for CORS fallback
+│   ├── _lib/
+│   │   └── security.js     → Shared SSRF validation + DNS pinning (imported, not an endpoint)
+│   ├── fetch.js            → Hardened URL proxy endpoint for CORS fallback
+│   └── resolve.js          → Share-page media-link resolver (og:video/JSON-LD/<video> extraction)
 │
 ├── css/
 │   └── styles.css          → All styles (dark charcoal + indigo-cyan theme)
@@ -113,6 +116,10 @@ reSOURCERY/
 ├── docs/
 │   └── MANIFEST.md         → Describes major artifacts and generated files
 │
+├── tests/
+│   ├── audio-processor-config.test.js  → FFmpeg core config regression test
+│   └── resolve-extract.test.mjs        → Resolver HTML-extraction unit tests
+│
 └── tasks/
     ├── todo.md             → Active task plan with checkable items
     └── lessons.md          → Accumulated patterns from corrections and mistakes
@@ -135,6 +142,16 @@ node --check js/analysis-worker.js
 node --check js/audio-processor.js
 node --check js/app.js
 node --check sw.js
+node --check api/fetch.js
+node --check api/_lib/security.js
+node --check api/resolve.js
+```
+
+### Unit tests
+
+```bash
+node tests/audio-processor-config.test.js
+node tests/resolve-extract.test.mjs
 ```
 
 ### Repository baseline smoke checks

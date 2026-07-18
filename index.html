@@ -56,7 +56,7 @@
       <div class="brand-row">
         <img class="app-logo" src="icons/reSOURCERY_optimized.svg" alt="reSOURCERY" />
         <h1 class="app-title">reSOURCERY</h1>
-        <span class="version-badge" id="versionBadge">v2.4.7</span>
+        <span class="version-badge" id="versionBadge">v2.5.0</span>
       </div>
 
       <!-- Subtitle -->
@@ -403,7 +403,7 @@
         </a>
       </div>
       <div class="footer-suite-tag">A VASEY/AI Production</div>
-      <div class="footer-app-tag">reSOURCERY v2.4.7 &middot; Audio Extraction Studio</div>
+      <div class="footer-app-tag">reSOURCERY v2.5.0 &middot; Audio Extraction Studio</div>
       <div class="footer-copyright">
         &copy; 2026 <a href="https://vaseymultimedia.com" target="_blank" rel="noopener">VASEY Multimedia</a>. All rights reserved.<br>
         Designed &amp; engineered by <a href="https://vasey.ai" target="_blank" rel="noopener">VASEY/AI</a>
@@ -447,7 +447,26 @@
           </div>
         </div>
         <div class="settings-footer">
-          <span class="version-text" id="settingsVersion">v2.4.7</span>
+          <span class="version-text" id="settingsVersion">v2.5.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- File Naming Dialog (Hidden by default) -->
+    <div class="name-dialog hidden" id="nameDialog" role="dialog" aria-modal="true" aria-labelledby="nameDialogTitle">
+      <div class="name-dialog-overlay" id="nameDialogOverlay"></div>
+      <div class="name-dialog-card glass-panel">
+        <div class="name-dialog-header">
+          <h3 class="name-dialog-title" id="nameDialogTitle">NAME YOUR DOWNLOAD</h3>
+          <span class="name-dialog-format" id="nameDialogFormat">WAV</span>
+        </div>
+        <div class="input-wrapper name-dialog-input">
+          <input type="text" id="trackTitleInput" maxlength="120" autocomplete="off" spellcheck="false" placeholder="Track title">
+        </div>
+        <p class="name-dialog-preview" id="namePreview" aria-live="polite"></p>
+        <div class="name-dialog-actions">
+          <button class="dialog-btn dialog-btn-secondary" id="nameCancelBtn">Cancel</button>
+          <button class="dialog-btn dialog-btn-primary" id="nameConfirmBtn">Download</button>
         </div>
       </div>
     </div>

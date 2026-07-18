@@ -443,9 +443,12 @@ body::before {
 /* Glass Panel - Enhanced 3D Layered Effect */
 .glass-panel {
   background: linear-gradient(145deg, rgba(18, 18, 18, 0.9) 0%, rgba(10, 10, 10, 0.95) 100%);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  /* saturate() enriches whatever glows through the glass */
+  backdrop-filter: var(--glass-blur) saturate(1.35);
+  -webkit-backdrop-filter: var(--glass-blur) saturate(1.35);
   border: 1px solid rgba(255, 255, 255, 0.04);
+  /* Crisper light-catching top edge */
+  border-top-color: rgba(255, 255, 255, 0.09);
   border-radius: var(--radius-lg);
   /* Multi-layer 3D shadow system */
   box-shadow:
@@ -453,7 +456,7 @@ body::before {
     0 4px 16px rgba(0, 0, 0, 0.5),
     0 8px 32px rgba(0, 0, 0, 0.3),
     /* Inner top highlight for bevel */
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
     /* Subtle bottom edge shadow */
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
   transition: all var(--transition-base);
@@ -470,6 +473,18 @@ body::before {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
   border-radius: var(--radius-full);
+  pointer-events: none;
+}
+
+/* Per-panel film grain — a whisper of texture over the glass.
+   The drop zone keeps its own ::after (inner ambient glow) instead. */
+.glass-panel:not(.drop-zone)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--noise-texture);
+  opacity: 0.02;
   pointer-events: none;
 }
 
@@ -522,7 +537,10 @@ body::before {
 .input-wrapper:focus-within {
   background: rgba(0, 0, 0, 0.6);
   border-color: var(--cyan-400);
-  box-shadow: 0 0 16px rgba(8, 145, 178, 0.2);
+  /* Layered indigo ring + cyan glow */
+  box-shadow:
+    0 0 0 1px rgba(85, 104, 204, 0.35),
+    0 0 18px rgba(50, 180, 196, 0.22);
 }
 
 .input-icon {
@@ -1091,6 +1109,8 @@ body::before {
   position: relative;
   height: 120px;
   background: linear-gradient(180deg, rgba(8, 145, 178, 0.05) 0%, transparent 100%);
+  /* Click/tap to seek */
+  cursor: pointer;
 }
 
 #waveformCanvas {
@@ -1128,11 +1148,18 @@ body::before {
   cursor: pointer;
   transition: all var(--transition-fast);
   flex-shrink: 0;
+  /* Soft indigo depth + inner bevel, matching the playhead's blue */
+  box-shadow:
+    0 2px 10px rgba(68, 85, 170, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .play-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 24px rgba(8, 145, 178, 0.4);
+  box-shadow:
+    0 0 24px rgba(85, 104, 204, 0.45),
+    0 2px 10px rgba(68, 85, 170, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .play-btn:active {
@@ -1359,6 +1386,26 @@ body::before {
 
 .format-btn:hover::before {
   opacity: 0.08;
+}
+
+/* Glass sheen that sweeps across on hover (transition, not a keyframe
+   loop, so the global reduced-motion rule collapses it automatically) */
+.format-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 60%);
+  background-size: 250% 100%;
+  background-position: 200% 0;
+  transition: background-position 600ms ease;
+  pointer-events: none;
+}
+
+.format-btn:hover::after {
+  background-position: -50% 0;
 }
 
 .format-btn:hover {
@@ -1686,6 +1733,136 @@ body::before {
 }
 
 /* ============================================
+   FILE NAMING DIALOG
+   ============================================ */
+.name-dialog {
+  position: fixed;
+  inset: 0;
+  /* Above the settings sheet (300), below toasts (400) */
+  z-index: 350;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.name-dialog.hidden {
+  display: none;
+}
+
+.name-dialog-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.name-dialog-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-lg);
+  border-radius: var(--radius-xl);
+  animation: fadeSlideIn 0.25s ease;
+}
+
+.name-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.name-dialog-title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+}
+
+.name-dialog-format {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  color: var(--cyan-400);
+  padding: 2px 10px;
+  border: 1px solid rgba(50, 180, 196, 0.35);
+  border-radius: var(--radius-full);
+  background: rgba(50, 180, 196, 0.08);
+  white-space: nowrap;
+}
+
+.name-dialog-input {
+  margin-bottom: var(--space-sm);
+}
+
+.name-dialog-preview {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+  padding: var(--space-xs) var(--space-sm) var(--space-md);
+  min-height: 2.2em;
+}
+
+.name-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.dialog-btn {
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.dialog-btn-secondary {
+  background: transparent;
+  border-color: var(--glass-border);
+  color: var(--text-secondary);
+}
+
+.dialog-btn-secondary:hover {
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dialog-btn-primary {
+  background: linear-gradient(135deg, var(--cyan-400) 0%, var(--teal-600) 100%);
+  border: none;
+  color: var(--color-bg-dark);
+  /* 3D button effect (matches .url-submit-btn) */
+  box-shadow:
+    0 2px 8px rgba(8, 145, 178, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+.dialog-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 16px rgba(8, 145, 178, 0.5),
+    0 0 24px rgba(8, 145, 178, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.dialog-btn-primary:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 4px rgba(8, 145, 178, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
    TOAST NOTIFICATIONS
    ============================================ */
 .toast-container {
@@ -1890,6 +2067,7 @@ body::before {
 .cancel-btn:focus-visible,
 .settings-close:focus-visible,
 .floating-menu-btn:focus-visible,
+.dialog-btn:focus-visible,
 .seek-bar:focus-visible {
   outline: 2px solid var(--cyan-400);
   outline-offset: 3px;

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.4.7-blue.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-2.5.0-blue.svg" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
   <a href="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml"><img src="https://github.com/SeanVasey/reSOURCERY/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey.svg" alt="Platform">
@@ -35,6 +35,7 @@ reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from
 - Extract audio from video files (MP4, MOV, AVI, MKV, WEBM)
 - Process audio files (MP3, WAV, M4A, FLAC, etc.)
 - Fetch media directly from URLs with progress tracking and secure proxy fallback for CORS-restricted hosts
+- **Smart link resolution** — paste a social share link (Instagram Reel/post, TikTok incl. shortlinks, X/Twitter status, Facebook watch) and the hardened `/api/resolve` endpoint digs the direct media URL out of the page (Open Graph, JSON-LD, `<video>` tags, platform JSON); HTML responses are byte-sniffed and auto-resolved, with clear guidance when a post is login-walled or manifest-only (best-effort — some platforms block datacenter requests)
 - Drag & drop or click-to-browse file selection
 
 ### Export Formats (Highest Quality Only)
@@ -42,12 +43,13 @@ reSOURCERY is a Progressive Web App (PWA) for extracting high-quality audio from
 - **WAV** — 24-bit PCM uncompressed
 - **MP3** — 320 kbps CBR
 - **AAC** — 256 kbps in M4A container
+- **Standardized naming** — a naming dialog with live preview saves every download as `[Title] - [BPM]bpm - [KEY].[ext]` (e.g. `Sunset Groove - 124bpm - F#m.wav`), pre-filled from the source and remembered per track
 
 ### Audio Analysis
 - **Tempo Detection** — BPM estimation using onset detection and autocorrelation
 - **Key Detection** — Musical key using Krumhansl-Schmuckler algorithm
 - **Camelot Wheel** — DJ-friendly key notation
-- **Waveform Visualization** — Real-time amplitude display
+- **Waveform Visualization** — Real-time amplitude display with a smooth left→right playback overlay, glowing playhead, and click-to-seek
 
 ### Technical Features
 - Sample rate preservation (8 kHz–384 kHz)
@@ -82,7 +84,7 @@ npx serve .
 python -m http.server 8080
 ```
 
-The included `server.py` serves the application on **port 50910** with proper CORS headers for cross-origin isolation and a local `/api/fetch` endpoint that mirrors Vercel proxy behavior for URL testing.
+The included `server.py` serves the application on **port 50910** with proper CORS headers for cross-origin isolation, plus local `/api/fetch` and `/api/resolve` endpoints that mirror the Vercel serverless behavior for URL testing.
 
 **Test the server:**
 ```bash
@@ -93,7 +95,7 @@ curl -I http://127.0.0.1:50910/
 
 ### Deployment
 
-reSOURCERY is a static-first web app with a lightweight optional serverless API route (`/api/fetch`) for URL proxy fallback. No build step is needed.
+reSOURCERY is a static-first web app with lightweight optional serverless API routes — `/api/fetch` (URL proxy fallback) and `/api/resolve` (share-page media-link resolution). No build step is needed.
 
 #### Vercel (Recommended)
 
@@ -136,8 +138,11 @@ reSOURCERY/
 ├── manifest.json           # PWA manifest (standalone, portrait)
 ├── vercel.json             # Vercel deployment headers, rewrites, and API support
 ├── api/
-│   └── fetch.js            # Hardened URL proxy endpoint for CORS fallback
-├── sw.js                   # Service worker (v2.4.7)
+│   ├── _lib/
+│   │   └── security.js     # Shared SSRF validation + DNS-pinning helpers (not an endpoint)
+│   ├── fetch.js            # Hardened URL proxy endpoint for CORS fallback
+│   └── resolve.js          # Share-page media-link resolver (og:video / JSON-LD / <video>)
+├── sw.js                   # Service worker (v2.5.0)
 ├── coi-serviceworker.js    # Cross-Origin Isolation for SharedArrayBuffer
 ├── css/
 │   └── styles.css          # Dark slate + indigo/cyan wizard theme
@@ -160,11 +165,14 @@ reSOURCERY/
 │   └── icon-maskable-512.png         # Android maskable icon
 ├── docs/
 │   └── MANIFEST.md         # Artifact and generated file descriptions
+├── tests/
+│   ├── audio-processor-config.test.js  # FFmpeg core config regression test
+│   └── resolve-extract.test.mjs        # Resolver HTML-extraction unit tests
 ├── tasks/
 │   ├── todo.md             # Active task plan
 │   └── lessons.md          # Accumulated patterns
 └── .github/workflows/
-    ├── ci.yml              # Syntax, baseline, version checks
+    ├── ci.yml              # Syntax, baseline, unit-test, version checks
     └── deploy-pages.yml    # GitHub Pages deployment
 ```
 
@@ -186,12 +194,17 @@ See [SECURITY.md](SECURITY.md) for:
 - CSP-ready architecture
 - URL validation (HTTP/HTTPS only, protocol enforcement)
 
+### API Hardening
+- `/api/fetch` and `/api/resolve` share the same SSRF protections (`api/_lib/security.js`): private-IP blocking (IPv4/IPv6 incl. mapped forms), DNS resolution with IP pinning against rebinding, and re-validation on every redirect hop
+- `/api/resolve` returns URLs only — media bytes always flow through the validated fetch paths; page buffering is capped at 3 MB with strict timeouts, and resolved URLs are re-validated client-side
+
 ## Version History
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 | Version | Date       | Summary                                |
 | ------- | ---------- | -------------------------------------- |
+| 2.5.0   | 2026-07-18 | Smart link resolution for social share URLs (`/api/resolve` + HTML sniffing), standardized download naming (`Title - BPM - Key` dialog with live preview), waveform playback overlay with indigo playhead + click-to-seek, glassmorphism polish |
 | 2.4.7   | 2026-07-16 | Cache-bust the corrected icons for returning devices: version the iOS icon filename (`apple-touch-icon-v2.png`) and add `?v=2` to favicon links, so Safari/iOS fetch the fixed icon instead of a stale cached copy |
 | 2.4.6   | 2026-07-16 | Faster icon-update propagation: `/icons/*`, `favicon.ico`, and the SVG icon now use `max-age=86400, stale-while-revalidate`; audited that every favicon/PWA/iOS raster derives from the full-bleed `resourcery-icon-ios.svg` |
 | 2.4.5   | 2026-07-16 | Fix white/uneven fringe on the iOS Home Screen icon: the full-bleed plate's pale-topped gradient read as a whitish rim once iOS masked its squircle — replaced with a uniform brand blue so the border is one clean color; regenerated the raster set |
@@ -225,6 +238,13 @@ node --check js/analysis-worker.js
 node --check js/audio-processor.js
 node --check js/app.js
 node --check sw.js
+node --check api/fetch.js
+node --check api/_lib/security.js
+node --check api/resolve.js
+
+# Unit tests
+node tests/audio-processor-config.test.js
+node tests/resolve-extract.test.mjs
 
 # Repository baseline checks
 test -f README.md && test -f CHANGELOG.md && test -f LICENSE && \
