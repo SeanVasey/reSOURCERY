@@ -33,6 +33,13 @@ jobs:
           node --check js/app.js
           node --check sw.js
           node --check api/fetch.js
+          node --check api/_lib/security.js
+          node --check api/resolve.js
+
+      - name: Unit tests
+        run: |
+          node tests/audio-processor-config.test.js
+          node tests/resolve-extract.test.mjs
 
       - name: Repository baseline smoke checks
         run: |
@@ -51,6 +58,8 @@ jobs:
           test -f js/version.js
           test -f sw.js
           test -f api/fetch.js
+          test -f api/resolve.js
+          test -f api/_lib/security.js
           test -f docs/MANIFEST.md
 
       - name: Version consistency check
